@@ -1,0 +1,36 @@
+{% load static tailwind_cli %}<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{% endblock %} | B2G Lab</title>
+  {% tailwind_css %}
+  <script src="{% static 'vendor/htmx/htmx.min.js' %}" defer></script>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900 antialiased" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+  <header class="bg-slate-900 text-white">
+    <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
+      <a href="{% url 'core:home' %}" class="font-semibold tracking-tight">B2G Lab</a>
+      <div class="flex items-center gap-4 text-sm">
+        {% if lab_dry_run %}
+          <span class="rounded-full bg-emerald-400/15 px-2.5 py-0.5 text-xs font-medium text-emerald-300 ring-1 ring-emerald-400/30">dry-run ativo</span>
+        {% else %}
+          <span class="rounded-full bg-amber-400/15 px-2.5 py-0.5 text-xs font-medium text-amber-300 ring-1 ring-amber-400/30">envios reais para a allowlist</span>
+        {% endif %}
+        <nav class="flex items-center gap-4">
+          <a href="{% url 'admin:index' %}" class="text-slate-300 hover:text-white">Admin</a>
+          {% if user.is_authenticated %}
+            <form method="post" action="{% url 'admin:logout' %}">
+              {% csrf_token %}
+              <button type="submit" class="cursor-pointer text-slate-300 hover:text-white">Sair</button>
+            </form>
+          {% endif %}
+        </nav>
+      </div>
+    </div>
+  </header>
+  <main class="mx-auto max-w-6xl px-4 py-8">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

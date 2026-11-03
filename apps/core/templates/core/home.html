@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Painel{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+  <h1 class="text-2xl font-semibold tracking-tight">B2G Integrations Lab</h1>
+  <p class="mt-1 text-sm text-slate-500">Laboratório de integrações entre os canais digitais da Brave2Grow.</p>
+</div>
+
+<section class="grid grid-cols-2 gap-4 md:grid-cols-4">
+  {% for stat in stats %}
+  <div class="rounded-lg border border-slate-200 bg-white p-4">
+    <p class="text-sm text-slate-500">{{ stat.label }}</p>
+    <p class="mt-1 text-2xl font-semibold tabular-nums">{{ stat.value }}</p>
+  </div>
+  {% endfor %}
+</section>
+
+<div class="mt-6 grid gap-6 lg:grid-cols-2">
+  <section class="rounded-lg border border-slate-200 bg-white p-5">
+    <h2 class="text-base font-semibold">Segurança operacional</h2>
+    <dl class="mt-4 grid gap-x-6 gap-y-1 text-sm sm:grid-cols-[max-content_1fr] sm:gap-y-3">
+      <dt class="mt-2 text-slate-500 first:mt-0 sm:mt-0">Modo dry-run</dt>
+      <dd>
+        {% if dry_run %}
+          {% include "core/partials/badge.html" with tone="ok" label="ativo: nenhum envio real" %}
+        {% else %}
+          {% include "core/partials/badge.html" with tone="warn" label="desativado: envios reais para a allowlist" %}
+        {% endif %}
+      </dd>
+      <dt class="mt-2 text-slate-500 first:mt-0 sm:mt-0">Destinatários na allowlist</dt>
+      <dd class="tabular-nums">{{ allowed_recipients_count }}</dd>
+      <dt class="mt-2 text-slate-500 first:mt-0 sm:mt-0">Contatos proativos por semana</dt>
+      <dd class="tabular-nums">até {{ max_proactive_per_week }} por contato</dd>
+      <dt class="mt-2 text-slate-500 first:mt-0 sm:mt-0">Settings</dt>
+      <dd><code class="text-xs">{{ settings_module }}</code></dd>
+      <dt class="mt-2 text-slate-500 first:mt-0 sm:mt-0">Debug</dt>
+      <dd>{{ debug|yesno:"sim,não" }}</dd>
+    </dl>
+  </section>
+
+  <section class="rounded-lg border border-slate-200 bg-white p-5">
+    <h2 class="text-base font-semibold">Fila e webhooks</h2>
+    <dl class="mt-4 grid gap-x-6 gap-y-1 text-sm sm:grid-cols-[max-content_1fr] sm:gap-y-3">
+      <dt class="mt-2 text-slate-500 first:mt-0 sm:mt-0">Tarefas pendentes no Huey</dt>
+      <dd class="tabular-nums">
+        {% if pending_tasks is None %}
+          {% include "core/partials/badge.html" with tone="danger" label="fila indisponível" %}
+        {% else %}
+          {{ pending_tasks }}
+        {% endif %}
+      </dd>
+    </dl>
+    <h3 class="mt-5 text-sm font-medium text-slate-700">Entregas nas últimas 24h</h3>
+    <ul class="mt-2 space-y-2 text-sm">
+      {% for item in deliveries %}
+      <li class="flex items-center justify-between">
+        {% include "core/partials/badge.html" with tone=item.tone label=item.label %}
+        <span class="tabular-nums text-slate-700">{{ item.total }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section class="rounded-lg border border-slate-200 bg-white p-5">
+    <div class="flex items-baseline justify-between">
+      <h2 class="text-base font-semibold">Credenciais</h2>
+      <a href="{% url 'admin:credentials_integrationcredential_add' %}" class="text-sm text-slate-500 hover:text-slate-900">Adicionar</a>
+    </div>
+    {% if credentials %}
+    <ul class="mt-4 divide-y divide-slate-100 text-sm">
+      {% for item in credentials %}
+      <li class="flex items-center justify-between gap-4 py-2">
+        <span class="min-w-0 truncate">{{ item.obj }}</span>
+        <span class="flex shrink-0 items-center gap-3">
+          {% if item.obj.expires_at %}<span class="text-xs text-slate-500">expira {{ item.obj.expires_at|date:"d/m/Y" }}</span>{% endif %}
+          {% include "core/partials/badge.html" with tone=item.tone label=item.status %}
+        </span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="mt-4 text-sm text-slate-500">Nenhuma credencial cadastrada.</p>
+    {% endif %}
+  </section>
+
+  <section class="rounded-lg border border-slate-200 bg-white p-5">
+    <h2 class="text-base font-semibold">Integrações</h2>
+    <p class="mt-1 text-xs text-slate-500">Variáveis preenchidas no .env. Os valores nunca são exibidos.</p>
+    <ul class="mt-4 divide-y divide-slate-100 text-sm">
+      {% for item in integrations %}
+      <li class="py-2">
+        <div class="flex items-center justify-between gap-4">
+          <span>{{ item.name }} <span class="text-xs text-slate-400">{{ item.phase }}</span></span>
+          {% if item.is_ready %}
+            {% include "core/partials/badge.html" with tone="ok" label="configurada" %}
+          {% else %}
+            <span class="text-xs tabular-nums text-slate-500">{{ item.configured|length }}/{{ item.total }}</span>
+          {% endif %}
+        </div>
+        {% if not item.is_ready and item.configured %}
+          <p class="mt-1 truncate text-xs text-slate-400">faltam: {{ item.missing|join:", " }}</p>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+</div>
+
+<section class="mt-6 rounded-lg border border-slate-200 bg-white p-5">
+  <div class="flex items-baseline justify-between">
+    <h2 class="text-base font-semibold">Eventos recentes</h2>
+    <span class="text-xs text-slate-400">atualiza a cada 15 s</span>
+  </div>
+  <div class="mt-2" hx-get="{% url 'core:recent_events' %}" hx-trigger="every 15s" hx-swap="innerHTML">
+    {% include "core/partials/recent_events.html" %}
+  </div>
+</section>
+{% endblock %}

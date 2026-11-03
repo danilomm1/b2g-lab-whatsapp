@@ -1,0 +1,5 @@
+/* Entrada do Tailwind. O CSS final é gerado em static/css/tailwind.css (não versionado). */
+@import "tailwindcss" source(none);
+
+@source "../../templates";
+@source "../../apps";
