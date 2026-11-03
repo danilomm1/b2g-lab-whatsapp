@@ -1,0 +1,33 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // Para depurar o Python, pare antes a tarefa "Django: runserver 8602"
+      // (painel Terminal, lixeira ou Ctrl+C), pois as duas usam a mesma porta.
+      "name": "Django: depurar no 8602",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/manage.py",
+      "args": ["runserver", "8602"],
+      "django": true,
+      "justMyCode": true,
+      "console": "integratedTerminal"
+    },
+    {
+      // Anexa ao Chrome aberto pela tarefa "Chrome: depuração 9997"
+      "name": "Chrome: anexar na 9997",
+      "type": "chrome",
+      "request": "attach",
+      "port": 9997,
+      "urlFilter": "http://localhost:8602/*",
+      "webRoot": "${workspaceFolder}/static"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Lab: Django + Chrome",
+      "configurations": ["Django: depurar no 8602", "Chrome: anexar na 9997"],
+      "stopAll": false
+    }
+  ]
+}

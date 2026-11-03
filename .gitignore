@@ -1,0 +1,34 @@
+# Segredos
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+build/
+dist/
+
+# Ferramentas
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Dados locais (SQLite do Django e da fila Huey)
+var/*
+!var/.gitkeep
+*.sqlite3
+*.sqlite3-*
+
+# Django
+staticfiles/
+media/
+
+# Tailwind: binário do CLI standalone e CSS gerado (python manage.py tailwind build)
+.django_tailwind_cli/
+static/css/tailwind.css
+
+# Sistema
+.DS_Store
+Thumbs.db
