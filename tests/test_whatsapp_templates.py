@@ -141,6 +141,7 @@ def test_sync_command_stores_meta_state_and_lists_catalog() -> None:
                         "language": "en_US",
                         "status": "APPROVED",
                         "category": "UTILITY",
+                        "rejected_reason": "NONE",
                     },
                     {
                         "id": "2",
@@ -167,7 +168,7 @@ def test_sync_command_stores_meta_state_and_lists_catalog() -> None:
 
     output = out.getvalue()
     assert "3 templates sincronizados" in output
-    assert "hello_world [en_US] UTILITY: APPROVED (UTILITY)" in output
+    assert "hello_world [en_US] UTILITY: APPROVED (UTILITY)\n" in output  # sem "motivo: NONE"
     assert (
         "b2g_confirmacao_reuniao [pt_BR] UTILITY: REJECTED (UTILITY), motivo: INVALID_FORMAT"
         in (output)

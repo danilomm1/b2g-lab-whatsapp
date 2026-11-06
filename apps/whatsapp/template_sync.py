@@ -32,6 +32,11 @@ def _language(value: str) -> str:
     return value.replace("-", "_")
 
 
+def _reason(value: Any) -> str:
+    """A Meta usa "NONE" (ou nulo) quando não há motivo de rejeição."""
+    return "" if value in (None, "", "NONE") else str(value)[:255]
+
+
 def store_template(data: dict[str, Any]) -> MessageTemplate:
     """Grava o que a Meta informou sobre um template (listagem ou criação)."""
     template, _ = MessageTemplate.objects.update_or_create(
@@ -41,7 +46,7 @@ def store_template(data: dict[str, Any]) -> MessageTemplate:
             "category": str(data.get("category", "")),
             "status": str(data.get("status", "")),
             "meta_id": str(data.get("id", "")),
-            "rejected_reason": str(data.get("rejected_reason") or "")[:255],
+            "rejected_reason": _reason(data.get("rejected_reason")),
             "components": data.get("components") or [],
             "raw": data,
         },
@@ -95,8 +100,7 @@ def apply_status_update(value: dict[str, Any]) -> MessageTemplate | None:
     template.status = event
     template.meta_id = str(value.get("message_template_id") or template.meta_id)
     template.category = str(value.get("message_template_category") or template.category)
-    reason = value.get("reason")
-    template.rejected_reason = "" if reason in (None, "NONE") else str(reason)[:255]
+    template.rejected_reason = _reason(value.get("reason"))
     template.raw = {**template.raw, "last_status_update": value}
     template.save()
     record_event(
