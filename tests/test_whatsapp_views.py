@@ -15,10 +15,12 @@ from apps.core.models import (
     Channel,
     Contact,
     Conversation,
+    ConversationStatus,
     Message,
     MessageDirection,
     MessageStatus,
 )
+from apps.whatsapp.models import FlowRun, FlowRunStatus
 
 PHONE = "+5511987654321"
 HTMX = {"HX-Request": "true"}
@@ -186,3 +188,35 @@ def test_failed_status_error_is_readable(admin_client: Client) -> None:
     ).content.decode()
 
     assert "131047 Re-engagement message" in content
+
+
+@pytest.mark.django_db
+def test_detail_shows_flow_and_gives_conversation_back_to_assistant(admin_client: Client) -> None:
+    conversation = _conversation()
+    conversation.status = ConversationStatus.HANDOFF
+    conversation.save()
+    run = FlowRun.objects.create(
+        conversation=conversation,
+        contact=conversation.contact,
+        flow_key="boas_vindas",
+        node="handoff",
+        status=FlowRunStatus.HANDOFF,
+        state={"answers": {"interesse": "danilo"}},
+    )
+
+    content = admin_client.get(
+        reverse("whatsapp:conversation_detail", args=[conversation.pk])
+    ).content.decode()
+    assert "Boas-vindas e qualificação" in content
+    assert "com humano" in content
+    assert "interesse" in content
+
+    response = admin_client.post(
+        reverse("whatsapp:give_back_to_assistant", args=[conversation.pk]), headers=HTMX
+    )
+
+    assert "devolvida ao assistente" in response.content.decode()
+    run.refresh_from_db()
+    conversation.refresh_from_db()
+    assert run.status == FlowRunStatus.COMPLETED
+    assert conversation.status == ConversationStatus.OPEN

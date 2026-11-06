@@ -16,6 +16,8 @@ from django.views.decorators.http import require_POST
 from apps.core.models import Channel, Conversation, MessageDirection, MessageStatus
 
 from . import payloads
+from .flows import FLOWS, release_handoff
+from .flows.engine import open_run
 from .payloads import InvalidPayload, OutboundPayload
 from .services import SendBlocked, send_message
 
@@ -63,8 +65,13 @@ def _thread_context(conversation: Conversation, *, feedback: str = "", tone: str
         payload = message.raw_payload if isinstance(message.raw_payload, dict) else {}
         message.reply_id = payload.get("reply_id", "")
         message.error_text = _error_text(message.error)
+    run = open_run(conversation)
+    flow = FLOWS.get(run.flow_key) if run else None
     return {
         "conversation": conversation,
+        "run": run,
+        "flow_name": flow.name if flow else (run.flow_key if run else ""),
+        "answers": (run.state or {}).get("answers", {}) if run else {},
         "thread": thread,
         "window_open": conversation.is_service_window_open(),
         "feedback": feedback,
@@ -139,3 +146,18 @@ def send_test_buttons(request: HttpRequest, pk: int) -> HttpResponse:
     """Manda a mensagem de teste com três botões de resposta."""
     conversation = get_object_or_404(_whatsapp_conversations(), pk=pk)
     return _respond(request, conversation, *_send(request, conversation, TEST_BUTTONS))
+
+
+@staff_member_required
+@require_POST
+def give_back_to_assistant(request: HttpRequest, pk: int) -> HttpResponse:
+    """Encerra o atendimento humano: a próxima mensagem do contato volta ao fluxo."""
+    conversation = get_object_or_404(_whatsapp_conversations(), pk=pk)
+    released = release_handoff(conversation)
+    conversation.refresh_from_db()
+    feedback = (
+        "Conversa devolvida ao assistente."
+        if released
+        else "Não havia atendimento humano em andamento."
+    )
+    return _respond(request, conversation, feedback, "ok" if released else "neutral")

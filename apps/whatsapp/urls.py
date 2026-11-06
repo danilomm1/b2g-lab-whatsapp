@@ -10,4 +10,9 @@ urlpatterns = [
     path("<int:pk>/mensagens/", views.conversation_thread, name="conversation_thread"),
     path("<int:pk>/responder/", views.reply, name="reply"),
     path("<int:pk>/botoes-de-teste/", views.send_test_buttons, name="send_test_buttons"),
+    path(
+        "<int:pk>/devolver-ao-assistente/",
+        views.give_back_to_assistant,
+        name="give_back_to_assistant",
+    ),
 ]

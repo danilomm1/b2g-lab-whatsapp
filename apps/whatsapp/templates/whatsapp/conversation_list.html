@@ -20,7 +20,10 @@
             {{ conversation.total }} mensage{{ conversation.total|pluralize:"m,ns" }}{% if conversation.last_at %} · última em {{ conversation.last_at|date:"d/m H:i" }}{% endif %}
           </span>
         </span>
-        <span class="shrink-0">
+        <span class="flex shrink-0 flex-wrap gap-2">
+          {% if conversation.status == "handoff" %}
+            {% include "core/partials/badge.html" with tone="warn" label="com humano" %}
+          {% endif %}
           {% if conversation.window_open %}
             {% include "core/partials/badge.html" with tone="ok" label="janela de 24h aberta" %}
           {% else %}
