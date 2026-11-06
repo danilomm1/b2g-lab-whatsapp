@@ -1,5 +1,7 @@
 # Segredos
 .env
+deploy/deploy.env
+*.pem
 
 # Python
 __pycache__/
@@ -32,3 +34,9 @@ static/css/tailwind.css
 # Sistema
 .DS_Store
 Thumbs.db
+
+# Chaves de acesso aos servidores
+certificates/
+
+# Deploy da EC2: tem IP, domínio e email da conta do certificado; fica só na máquina local
+/deploy.py

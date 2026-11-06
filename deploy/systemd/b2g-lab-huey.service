@@ -1,0 +1,21 @@
+[Unit]
+Description=B2G Integrations Lab: consumidor da fila Huey
+After=network.target
+
+[Service]
+User=b2glab
+Group=b2glab
+WorkingDirectory=/srv/b2g-lab/app
+Environment=DJANGO_SETTINGS_MODULE=config.settings.prod
+ExecStart=/srv/b2g-lab/venv/bin/python manage.py run_huey
+Restart=on-failure
+RestartSec=5
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/b2g-lab/app/var
+
+[Install]
+WantedBy=multi-user.target

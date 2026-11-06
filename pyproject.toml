@@ -16,6 +16,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Servidor de validação na EC2 (deploy/deploy.sh)
+prod = [
+    "gunicorn>=23",
+]
 dev = [
     "pytest>=8.0",
     "pytest-django>=4.9",

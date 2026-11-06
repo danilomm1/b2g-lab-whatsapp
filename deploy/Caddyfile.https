@@ -1,0 +1,33 @@
+# Parte HTTPS do Caddyfile: o deploy a junta ao Caddyfile depois que o certbot emitiu o
+# certificado. Estáticos servidos direto do disco; o resto vai ao Gunicorn.
+https://LAB_DOMAIN {
+	# Cópia feita pelo hook do certbot (deploy/certbot-caddy-hook.sh)
+	tls /etc/caddy/certs/LAB_DOMAIN/fullchain.pem /etc/caddy/certs/LAB_DOMAIN/privkey.pem
+
+	encode zstd gzip
+
+	handle_path /static/* {
+		root * /srv/b2g-lab/app/staticfiles
+		file_server
+	}
+
+	handle {
+		reverse_proxy 127.0.0.1:8000
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "same-origin"
+		-Server
+	}
+
+	log {
+		output file /var/log/caddy/b2g-lab.log
+	}
+}
+
+# Nome de TLS certo com outro Host no cabeçalho: conexão encerrada
+https:// {
+	abort
+}
