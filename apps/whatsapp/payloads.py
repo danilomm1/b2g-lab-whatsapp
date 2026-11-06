@@ -169,3 +169,92 @@ def template(
     return OutboundPayload(
         "template", preview or f"[template {name}]", {"type": "template", "template": data}
     )
+
+
+MEDIA_KINDS = ("image", "document", "audio", "video")
+MAX_CAPTION = 1024
+MAX_FORM_CTA = 20
+# Tipos aceitos pela Cloud API e o limite de cada um (página "Media")
+MEDIA_LIMITS = {
+    "image": (frozenset({"image/jpeg", "image/png", "image/webp"}), 5 * 1024 * 1024),
+    "audio": (
+        frozenset({"audio/aac", "audio/amr", "audio/mpeg", "audio/mp4", "audio/ogg"}),
+        16 * 1024 * 1024,
+    ),
+    "video": (frozenset({"video/mp4", "video/3gpp"}), 16 * 1024 * 1024),
+    "document": (frozenset(), 100 * 1024 * 1024),  # vazio: qualquer tipo de documento
+}
+
+
+def media_kind_for(mime_type: str) -> str:
+    """Tipo de mensagem para um arquivo: imagem, áudio e vídeo aceitos; o resto vira documento."""
+    for kind in ("image", "audio", "video"):
+        if mime_type in MEDIA_LIMITS[kind][0]:
+            return kind
+    return "document"
+
+
+def check_media(kind: str, mime_type: str, size: int) -> None:
+    accepted, limit = MEDIA_LIMITS[kind]
+    if accepted and mime_type not in accepted:
+        raise InvalidPayload(f"Tipo {mime_type} não é aceito como {kind}")
+    if size > limit:
+        raise InvalidPayload(f"Arquivo de {size} bytes passa do limite de {limit} para {kind}")
+
+
+def media(
+    kind: str,
+    *,
+    media_id: str = "",
+    link: str = "",
+    caption: str = "",
+    filename: str = "",
+) -> OutboundPayload:
+    """Imagem, documento, áudio ou vídeo, por ID de mídia enviada à Meta ou por link público."""
+    if kind not in MEDIA_KINDS:
+        raise InvalidPayload(f"Tipo de mídia desconhecido: {kind}")
+    if bool(media_id) == bool(link):
+        raise InvalidPayload("Informe o ID da mídia ou o link, um dos dois")
+    _check_length("Legenda", caption, MAX_CAPTION, required=False)
+    if caption and kind == "audio":
+        raise InvalidPayload("Áudio não aceita legenda")
+    content: dict[str, Any] = {"id": media_id} if media_id else {"link": link}
+    if caption:
+        content["caption"] = caption
+    if filename and kind == "document":
+        content["filename"] = filename
+    return OutboundPayload(kind, caption or filename or f"[{kind}]", {"type": kind, kind: content})
+
+
+def form(
+    body: str,
+    cta: str,
+    *,
+    flow_id: str,
+    token: str,
+    screen: str,
+    header: str = "",
+    footer: str = "",
+    mode: str = "published",
+) -> OutboundPayload:
+    """Mensagem que abre um WhatsApp Flow (formulário nativo); a resposta volta como nfm_reply."""
+    _check_length("Corpo", body, MAX_INTERACTIVE_BODY)
+    _check_length("Botão do formulário", cta, MAX_FORM_CTA)
+    interactive = {
+        "type": "flow",
+        "body": {"text": body},
+        "action": {
+            "name": "flow",
+            "parameters": {
+                "flow_message_version": "3",
+                "flow_token": token,
+                "flow_id": flow_id,
+                "flow_cta": cta,
+                "flow_action": "navigate",
+                "flow_action_payload": {"screen": screen},
+                "mode": mode,
+            },
+        },
+        **_header_footer(header, footer),
+    }
+    return OutboundPayload("interactive", body, {"type": "interactive", "interactive": interactive})

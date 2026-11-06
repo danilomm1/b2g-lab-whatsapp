@@ -124,7 +124,7 @@ LAB_MAX_PROACTIVE_PER_WEEK = env.int("LAB_MAX_PROACTIVE_PER_WEEK", default=3)
 LAB_WEBHOOK_SECRET = env.str("LAB_WEBHOOK_SECRET", default="")
 
 # Meta: Graph API (Facebook, Instagram, WhatsApp). Versão registrada em docs/integrations/meta.md
-META_GRAPH_API_VERSION = env.str("META_GRAPH_API_VERSION", default="") or "v26.0"
+META_GRAPH_API_VERSION = env.str("META_GRAPH_API_VERSION", default="") or "v27.0"
 META_APP_ID = env.str("META_APP_ID", default="")
 META_APP_SECRET = env.str("META_APP_SECRET", default="")
 META_SYSTEM_USER_TOKEN = env.str("META_SYSTEM_USER_TOKEN", default="")
@@ -140,6 +140,10 @@ WHATSAPP_BUSINESS_NUMBER = env.str("WHATSAPP_BUSINESS_NUMBER", default="")
 WHATSAPP_FLOW_SEND_DELAY = env.float("WHATSAPP_FLOW_SEND_DELAY", default=1.0)
 # Link mostrado no aviso de privacidade do primeiro contato (CLAUDE.md, seção 13)
 PRIVACY_POLICY_URL = env.str("PRIVACY_POLICY_URL", default="")
+# Mídias recebidas pelo WhatsApp: baixadas da Meta (a URL expira em 5 min) e servidas só a staff
+WHATSAPP_MEDIA_DIR = VAR_DIR / "media" / "whatsapp"
+# Números do Danilo (E.164): recebem o aviso de handoff e, na Fase 9, os comandos do Console CEO
+OWNER_WHATSAPP_NUMBERS = env.list("OWNER_WHATSAPP_NUMBERS", default=[])
 
 LOGGING = {
     "version": 1,

@@ -95,3 +95,34 @@ class FlowRun(models.Model):
     def finish(self, status: str) -> None:
         self.status = status
         self.finished_at = timezone.now()
+
+
+class WhatsAppForm(models.Model):
+    """WhatsApp Flow (formulário nativo) como está na Meta.
+
+    O conteúdo fica versionado em forms_catalog.py; aqui ficam o ID, o status e os
+    erros de validação devolvidos pela Meta.
+    """
+
+    name = models.CharField("nome", max_length=200, unique=True)
+    meta_id = models.CharField("ID na Meta", max_length=64, blank=True)
+    status = models.CharField(
+        "status na Meta", max_length=20, blank=True, help_text="DRAFT, PUBLISHED, DEPRECATED..."
+    )
+    categories = models.JSONField("categorias", default=list, blank=True)
+    validation_errors = models.JSONField("erros de validação", default=list, blank=True)
+    raw = models.JSONField("último retorno da Meta", default=dict, blank=True)
+    updated_at = models.DateTimeField("atualizado em", auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+        verbose_name = "formulário do WhatsApp (Flow)"
+        verbose_name_plural = "formulários do WhatsApp (Flows)"
+
+    def __str__(self) -> str:
+        return f"{self.name} {self.status or '-'}"
+
+    @property
+    def send_mode(self) -> str:
+        """Publicado vai em modo normal; rascunho só pode ser enviado em modo de teste."""
+        return "published" if self.status == "PUBLISHED" else "draft"

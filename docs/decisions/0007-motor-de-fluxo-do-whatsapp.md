@@ -15,13 +15,13 @@ As opções eram fluxos guardados no banco, editáveis por tela, ou fluxos defin
 
 ## Decisão
 
-- **Fluxos definidos em Python** (`apps/whatsapp/flows`), como grafos de nós com IDs. Tipos: `Say`, `Ask` (botões, lista ou texto validado), `Branch`, `Call` (serviço ou API, em savepoint), `Handoff` e `End`. O grafo é validado na criação: nó inexistente é erro.
+- **Fluxos definidos em Python** (`apps/whatsapp/flows`), como grafos de nós com IDs. Tipos: `Say`, `Ask` (botões, lista ou texto validado), `Form` (WhatsApp Flow, ligado à resposta pelo `flow_token`), `Branch`, `Call` (serviço ou API, em savepoint), `Handoff` e `End`. O grafo é validado na criação: nó inexistente é erro.
 - **Estado no banco:** `FlowRun` guarda o fluxo, o nó atual, as respostas e as tentativas. Uma restrição garante no máximo uma execução aberta (ativa ou com humano) por conversa.
 - **Envio depois do commit:** o motor só decide o que dizer e põe numa caixa de saída. `transaction.on_commit` agenda a tarefa Huey `send_outbox`, sem novas tentativas automáticas (repetir pode duplicar), que envia em ordem por `send_message`.
 - **Robustez:**
   - O motor roda num savepoint. Se falhar, a mensagem recebida continua gravada e a falha vira o evento `whatsapp.flow_error`.
   - Os IDs de botão levam o nó como prefixo, para que um toque em botão antigo não seja aceito como resposta.
-- **Regras de conversa no motor, não em cada fluxo:** SAIR (cancela e confirma), MENU (recomeça e tira do handoff), silêncio durante o handoff, 12 horas sem recomeço automático depois de concluir, e validade de 24 horas para perguntas sem resposta.
+- **Regras de conversa no motor, não em cada fluxo:** SAIR (cancela e confirma), MENU (recomeça e tira do handoff), palavras que iniciam fluxos (CADASTRO), botões de template com prioridade sobre a pergunta aberta, silêncio durante o handoff, 12 horas sem recomeço automático depois de concluir, e validade de 24 horas para perguntas sem resposta.
 
 ## Consequências
 

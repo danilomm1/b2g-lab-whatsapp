@@ -20,7 +20,7 @@ LAB_WEBHOOK_SECRET = "segredo-de-teste"
 FIELD_ENCRYPTION_KEY = ["VnKG7mLsQdOeZfRFad5j59yysvi-2lVFWSDV9id07vs="]
 
 # Meta com valores fictícios; toda chamada à Graph API nos testes é mockada (respx)
-META_GRAPH_API_VERSION = "v26.0"
+META_GRAPH_API_VERSION = "v27.0"
 META_APP_ID = "1234567890"
 META_APP_SECRET = "segredo-do-app-de-teste"
 META_SYSTEM_USER_TOKEN = "token-de-teste-do-system-user"
@@ -31,4 +31,5 @@ WHATSAPP_BUSINESS_ACCOUNT_ID = "333"
 WHATSAPP_PHONE_NUMBER_ID = "444"
 WHATSAPP_BUSINESS_NUMBER = ""
 WHATSAPP_FLOW_SEND_DELAY = 0.0
-PRIVACY_POLICY_URL = "https://brave2grow.com/privacidade"
+PRIVACY_POLICY_URL = "https://brave2grow.com/privacidade/"
+OWNER_WHATSAPP_NUMBERS: list[str] = []

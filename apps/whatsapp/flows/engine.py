@@ -57,6 +57,8 @@ class FlowContext:
     flow: Flow
     message: Message | None = None
     outbox: list[OutboundPayload] = field(default_factory=list)
+    # Avisos para outras conversas (ex.: o Danilo no handoff), enviados depois da resposta
+    notices: list[tuple[Conversation, OutboundPayload]] = field(default_factory=list)
 
     @property
     def contact(self) -> Contact:
@@ -101,6 +103,14 @@ class Node:
         return ()
 
 
+class Waiting(Node):
+    """Nó que para e espera a próxima mensagem do contato (pergunta ou formulário)."""
+
+    def receive(self, ctx: FlowContext, message: Message) -> str | None:
+        """Interpreta a resposta; devolve o próximo nó ou None para continuar esperando."""
+        raise NotImplementedError
+
+
 class Say(Node):
     """Envia uma mensagem e segue."""
 
@@ -125,7 +135,7 @@ class Option:
     description: str = ""
 
 
-class Ask(Node):
+class Ask(Waiting):
     """Pergunta e espera a resposta: por opções (botões ou lista) ou texto livre validado.
 
     Opções viram botões (até 3) ou lista (até 10). O ID enviado leva o nó como prefixo,
@@ -194,7 +204,6 @@ class Ask(Node):
         return value is not None, value, self.next
 
     def receive(self, ctx: FlowContext, message: Message) -> str | None:
-        """Interpreta a resposta; devolve o próximo nó ou None para continuar esperando."""
         matched, value, next_node = self._match(message)
         if matched:
             ctx.answers[self.save_as] = value
@@ -209,6 +218,78 @@ class Ask(Node):
 
     def targets(self) -> Iterable[str]:
         return [o.next for o in self.options] + [t for t in (self.next, self.on_fail) if t]
+
+
+class Form(Waiting):
+    """Abre um WhatsApp Flow (formulário nativo) e espera o envio, que volta como nfm_reply.
+
+    O flow_token liga a resposta à execução e ao nó. Se o formulário não existe na Meta,
+    segue para unavailable. Uma mensagem que não é o envio do formulário conta como
+    tentativa e reenvia o convite; depois de max_attempts, segue para on_fail.
+    """
+
+    def __init__(
+        self,
+        node_id: str,
+        form_name: str,
+        text: TextSource,
+        *,
+        cta: str,
+        save_as: str,
+        next: str,
+        on_fail: str,
+        unavailable: str,
+        retry: str = "Para continuar, toque no botão abaixo e preencha o formulário.",
+        max_attempts: int = 2,
+    ) -> None:
+        super().__init__(node_id)
+        self.form_name = form_name
+        self.text = text
+        self.cta = cta
+        self.save_as = save_as
+        self.next = next
+        self.on_fail = on_fail
+        self.unavailable = unavailable
+        self.retry = retry
+        self.max_attempts = max_attempts
+
+    def token(self, ctx: FlowContext) -> str:
+        return f"{ctx.run.pk}:{self.id}"
+
+    def enter(self, ctx: FlowContext) -> str | None:
+        from ..forms_catalog import get_form
+        from ..models import WhatsAppForm
+
+        stored = WhatsAppForm.objects.filter(name=self.form_name).exclude(meta_id="").first()
+        if stored is None or stored.status not in {"PUBLISHED", "DRAFT"}:
+            logger.warning("Formulário %s indisponível na Meta", self.form_name)
+            return self.unavailable
+        ctx.say(
+            payloads.form(
+                _text(self.text, ctx),
+                self.cta,
+                flow_id=stored.meta_id,
+                token=self.token(ctx),
+                screen=get_form(self.form_name).first_screen,
+                mode=stored.send_mode,
+            )
+        )
+        return None
+
+    def receive(self, ctx: FlowContext, message: Message) -> str | None:
+        payload = message.raw_payload if isinstance(message.raw_payload, dict) else {}
+        response = payload.get("form_response") or {}
+        if response.get("flow_token") == self.token(ctx):
+            ctx.answers[self.save_as] = {k: v for k, v in response.items() if k != "flow_token"}
+            return self.next
+        ctx.run.attempts += 1
+        if ctx.run.attempts >= self.max_attempts:
+            return self.on_fail
+        ctx.say(self.retry)
+        return self.enter(ctx)
+
+    def targets(self) -> Iterable[str]:
+        return (self.next, self.on_fail, self.unavailable)
 
 
 class Branch(Node):
@@ -287,6 +368,8 @@ class Handoff(Node):
         self.reason = reason
 
     def enter(self, ctx: FlowContext) -> str | None:
+        from ..services import owner_notifications
+
         ctx.say(self.message)
         ctx.run.status = FlowRunStatus.HANDOFF
         conversation = ctx.conversation
@@ -298,6 +381,11 @@ class Handoff(Node):
             channel="whatsapp",
             summary=self.reason or f"Pedido de atendimento humano ({ctx.flow.key})",
             data={"run_id": ctx.run.pk, "answers": ctx.answers},
+        )
+        ctx.notices.extend(
+            owner_notifications(
+                ctx.contact, self.reason or "pedido de atendimento humano", ctx.answers
+            )
         )
         return None
 
@@ -338,6 +426,8 @@ QuickReplyHandler = Callable[[Message, list[OutboundPayload]], "str | None"]
 # Respostas a botões de template (fora de fluxo). O handler pode responder na caixa de
 # saída e devolver a chave de um fluxo para iniciar.
 QUICK_REPLY_HANDLERS: dict[str, QuickReplyHandler] = {}
+# Palavras (normalizadas) que iniciam um fluxo específico, ex.: CADASTRO
+KEYWORD_FLOWS: dict[str, str] = {}
 DEFAULT_FLOW = "boas_vindas"
 
 
@@ -367,6 +457,7 @@ def start_flow(
     message: Message | None = None,
     node: str | None = None,
     outbox: list[OutboundPayload] | None = None,
+    notices: list[tuple[Conversation, OutboundPayload]] | None = None,
 ) -> FlowContext:
     """Cria a execução e anda até o primeiro ponto de espera."""
     flow = FLOWS[key]
@@ -378,7 +469,11 @@ def start_flow(
         state={"answers": {}},
     )
     ctx = FlowContext(
-        run=run, flow=flow, message=message, outbox=outbox if outbox is not None else []
+        run=run,
+        flow=flow,
+        message=message,
+        outbox=outbox if outbox is not None else [],
+        notices=notices if notices is not None else [],
     )
     _advance(ctx, node or flow.start)
     run.save()
@@ -432,44 +527,68 @@ def handle_inbound(message: Message) -> list[OutboundPayload]:
     """Decide a resposta a uma mensagem recebida e agenda o envio para depois do commit."""
     conversation = message.conversation
     outbox: list[OutboundPayload] = []
+    notices: list[tuple[Conversation, OutboundPayload]] = []
     run = open_run(conversation)
     typed = normalize(message.body)
+    keyword_flow = KEYWORD_FLOWS.get(typed) if message.kind == "text" else None
+    reply_id = str((message.raw_payload or {}).get("reply_id", ""))
+    # Botão de template vale mesmo com fluxo em andamento: não é resposta à pergunta atual
+    template_handler = QUICK_REPLY_HANDLERS.get(reply_id) if message.kind == "button" else None
+
+    def start(key: str = DEFAULT_FLOW, **kwargs: Any) -> None:
+        start_flow(conversation, key, message=message, outbox=outbox, notices=notices, **kwargs)
 
     if message.kind in {"text", "button", "interactive"} and is_opt_out_message(message.body):
         if run:
             _close(run, FlowRunStatus.CANCELLED)
         outbox.append(payloads.text(OPT_OUT_CONFIRMATION))
-    elif message.kind == "text" and typed in MENU_KEYWORDS:
+    elif message.kind == "text" and (typed in MENU_KEYWORDS or keyword_flow):
         if run:
             _close(run, FlowRunStatus.CANCELLED)
-        start_flow(conversation, message=message, outbox=outbox)
+        start(keyword_flow or DEFAULT_FLOW)
+    elif template_handler:
+        key = template_handler(message, outbox)
+        if key:
+            if run:
+                _close(run, FlowRunStatus.CANCELLED)
+            start(key)
     elif run and run.status == FlowRunStatus.HANDOFF:
         pass  # um humano está atendendo
     elif run and timezone.now() - run.updated_at > RUN_TTL:
         _close(run, FlowRunStatus.EXPIRED)
-        start_flow(conversation, message=message, outbox=outbox)
+        start()
     elif run:
         flow = FLOWS.get(run.flow_key)
         node = flow.nodes.get(run.node) if flow else None
-        if not isinstance(node, Ask):
+        if not isinstance(node, Waiting):
             logger.warning("Execução %s parada num nó que não espera resposta", run.pk)
             _close(run, FlowRunStatus.CANCELLED)
         else:
-            ctx = FlowContext(run=run, flow=flow, message=message, outbox=outbox)
+            ctx = FlowContext(run=run, flow=flow, message=message, outbox=outbox, notices=notices)
             _advance(ctx, node.receive(ctx, message))
             run.save()
-    else:
-        reply_id = str((message.raw_payload or {}).get("reply_id", ""))
-        handler = QUICK_REPLY_HANDLERS.get(reply_id) if message.kind == "button" else None
-        if handler:
-            key = handler(message, outbox)
-            if key:
-                start_flow(conversation, key, message=message, outbox=outbox)
-        elif _may_auto_start(conversation):
-            start_flow(conversation, message=message, outbox=outbox)
+    elif _may_auto_start(conversation):
+        start()
 
     if outbox:
         schedule_outbox(conversation, outbox, reply_to=message)
+    for notice_conversation, notice in notices:
+        schedule_outbox(notice_conversation, [notice], reply_to=None)
+    return outbox
+
+
+def start_by_agent(conversation: Conversation, key: str) -> list[OutboundPayload]:
+    """Inicia um fluxo a pedido de quem atende (tela de conversa), encerrando o que houver."""
+    run = open_run(conversation)
+    if run:
+        _close(run, FlowRunStatus.CANCELLED)
+    outbox: list[OutboundPayload] = []
+    notices: list[tuple[Conversation, OutboundPayload]] = []
+    start_flow(conversation, key, outbox=outbox, notices=notices)
+    if outbox:
+        schedule_outbox(conversation, outbox, reply_to=None)
+    for notice_conversation, notice in notices:
+        schedule_outbox(notice_conversation, [notice], reply_to=None)
     return outbox
 
 

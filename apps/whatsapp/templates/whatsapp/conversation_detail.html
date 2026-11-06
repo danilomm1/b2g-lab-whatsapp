@@ -30,27 +30,46 @@
 </section>
 
 <section class="mt-6 rounded-lg border border-slate-200 bg-white p-5">
-  <h2 class="text-base font-semibold">Responder</h2>
+  <h2 class="text-base font-semibold">Responder como Brave2Grow</h2>
   <p class="mt-1 text-xs text-slate-500">
-    Texto livre só dentro da janela de 24h. Com o dry-run ativo, a mensagem fica como simulada; com ele desligado, só sai para números da allowlist.
+    Texto livre ou arquivo só dentro da janela de 24h. Com o dry-run ativo, a mensagem fica como simulada; com ele desligado, só sai para números da allowlist.
   </p>
-  <form class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-start"
-        method="post" action="{% url 'whatsapp:reply' conversation.pk %}"
-        hx-post="{% url 'whatsapp:reply' conversation.pk %}" hx-target="#thread" hx-swap="innerHTML"
+  <form class="mt-4 flex flex-col gap-3"
+        method="post" enctype="multipart/form-data" action="{% url 'whatsapp:reply' conversation.pk %}"
+        hx-post="{% url 'whatsapp:reply' conversation.pk %}" hx-encoding="multipart/form-data"
+        hx-target="#thread" hx-swap="innerHTML"
         hx-on::after-request="if (event.detail.successful) this.reset()">
     {% csrf_token %}
-    <label for="reply-body" class="sr-only">Mensagem</label>
-    <textarea id="reply-body" name="body" rows="2" required maxlength="4096"
+    <label for="reply-body" class="sr-only">Mensagem ou legenda</label>
+    <textarea id="reply-body" name="body" rows="2" maxlength="4096"
               class="min-h-11 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
-              placeholder="Escreva a resposta"></textarea>
-    <button type="submit" class="min-h-11 shrink-0 cursor-pointer rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">Enviar</button>
+              placeholder="Escreva a resposta (ou a legenda do arquivo)"></textarea>
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <label class="text-sm text-slate-600">
+        <span class="sr-only">Anexo</span>
+        <input type="file" name="attachment"
+               class="block w-full text-sm text-slate-600 file:mr-3 file:min-h-11 file:cursor-pointer file:rounded-md file:border file:border-slate-300 file:bg-white file:px-3 file:py-2 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-slate-50">
+      </label>
+      <button type="submit" class="min-h-11 shrink-0 cursor-pointer rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">Enviar</button>
+    </div>
   </form>
-  <form class="mt-3" method="post" action="{% url 'whatsapp:send_test_buttons' conversation.pk %}"
-        hx-post="{% url 'whatsapp:send_test_buttons' conversation.pk %}" hx-target="#thread" hx-swap="innerHTML">
-    {% csrf_token %}
-    <button type="submit" class="min-h-11 cursor-pointer rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-      Enviar mensagem de teste com botões
-    </button>
-  </form>
+  <h3 class="mt-5 text-sm font-medium text-slate-700">Testes rápidos</h3>
+  <div class="mt-2 flex flex-wrap gap-2">
+    <form method="post" action="{% url 'whatsapp:send_test_buttons' conversation.pk %}"
+          hx-post="{% url 'whatsapp:send_test_buttons' conversation.pk %}" hx-target="#thread" hx-swap="innerHTML">
+      {% csrf_token %}
+      <button type="submit" class="min-h-11 cursor-pointer rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Mensagem com botões</button>
+    </form>
+    <form method="post" action="{% url 'whatsapp:send_test_image' conversation.pk %}"
+          hx-post="{% url 'whatsapp:send_test_image' conversation.pk %}" hx-target="#thread" hx-swap="innerHTML">
+      {% csrf_token %}
+      <button type="submit" class="min-h-11 cursor-pointer rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Imagem de teste</button>
+    </form>
+    <form method="post" action="{% url 'whatsapp:start_registration' conversation.pk %}"
+          hx-post="{% url 'whatsapp:start_registration' conversation.pk %}" hx-target="#thread" hx-swap="innerHTML">
+      {% csrf_token %}
+      <button type="submit" class="min-h-11 cursor-pointer rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Formulário de cadastro</button>
+    </form>
+  </div>
 </section>
 {% endblock %}

@@ -27,7 +27,7 @@ from apps.whatsapp import payloads
 from apps.whatsapp.payloads import InvalidPayload, ListRow, ListSection
 from apps.whatsapp.services import SendBlocked, mark_as_read, send_message
 
-GRAPH = "https://graph.facebook.com/v26.0"
+GRAPH = "https://graph.facebook.com/v27.0"
 MESSAGES_URL = f"{GRAPH}/444/messages"
 PHONE = "+5511987654321"
 BSUID = "BR.13491208655302741918"
