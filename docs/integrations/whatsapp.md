@@ -52,6 +52,14 @@ Montagem das mensagens (`apps/whatsapp/payloads.py`), com os limites validados a
 
 `mark_as_read` marca a mensagem recebida como lida e pode mostrar "digitando...". Também segue dry-run e allowlist.
 
+### Telas de teste (`/whatsapp/`)
+
+- **Conversas** (link no topo do painel, só staff): lista as conversas do WhatsApp com o estado da janela de 24h.
+- **Conversa:** mostra as mensagens (atualizadas pelo HTMX a cada 5 s), com o status de cada envio (simulada, na fila, enviada, entregue, lida, falhou) e o ID dos botões tocados.
+- **Responder:** texto livre dentro da janela e um botão que manda uma mensagem de teste com três botões (`teste_sim`, `teste_nao`, `teste_talvez`), para validar a resposta interativa.
+- Todo envio passa por `send_message`. Para chegar de verdade no celular, o servidor precisa de `LAB_DRY_RUN=False` e do número em `LAB_ALLOWED_RECIPIENTS`; voltar ao dry-run ao fim do teste.
+- É uma versão só do WhatsApp; a caixa de entrada unificada continua na Fase 8.
+
 ### Comandos
 
 ```powershell
