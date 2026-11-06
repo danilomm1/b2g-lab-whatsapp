@@ -30,7 +30,7 @@ from apps.meta_business.client import GraphAPIError
 from . import payloads
 from .flows import FLOWS, release_handoff
 from .flows.engine import open_run, start_by_agent
-from .payloads import InvalidPayload, OutboundPayload
+from .payloads import InvalidPayload, ListRow, ListSection, OutboundPayload
 from .services import SendBlocked, send_media, send_message
 
 THREAD_LIMIT = 100
@@ -48,6 +48,25 @@ STATUS_TONES = {
 TEST_BUTTONS = payloads.buttons(
     "Teste do laboratório: toque em uma opção para ver a resposta chegar.",
     [("teste_sim", "Sim"), ("teste_nao", "Não"), ("teste_talvez", "Talvez")],
+    footer="B2G Integrations Lab",
+)
+# Lista com duas seções, para testar a resposta list_reply e os títulos de seção
+TEST_LIST = payloads.list_message(
+    "Teste do laboratório: escolha um horário na lista para ver a resposta chegar.",
+    "Ver horários",
+    [
+        ListSection(
+            "Esta semana",
+            [
+                ListRow("teste_seg_10", "Segunda, 10h", "30 minutos"),
+                ListRow("teste_qua_15", "Quarta, 15h", "30 minutos"),
+            ],
+        ),
+        ListSection(
+            "Próxima semana",
+            [ListRow("teste_ter_09", "Terça, 9h", "45 minutos")],
+        ),
+    ],
     footer="B2G Integrations Lab",
 )
 TEST_IMAGE = Path(__file__).resolve().parent / "static" / "whatsapp" / "imagem-teste.png"
@@ -204,6 +223,14 @@ def give_back_to_assistant(request: HttpRequest, pk: int) -> HttpResponse:
         else "Não havia atendimento humano em andamento."
     )
     return _respond(request, conversation, feedback, "ok" if released else "neutral")
+
+
+@staff_member_required
+@require_POST
+def send_test_list(request: HttpRequest, pk: int) -> HttpResponse:
+    """Manda a mensagem de teste com lista de duas seções."""
+    conversation = get_object_or_404(_whatsapp_conversations(), pk=pk)
+    return _respond(request, conversation, *_send(request, conversation, TEST_LIST))
 
 
 @staff_member_required

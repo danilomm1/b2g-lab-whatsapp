@@ -60,6 +60,11 @@
       {% csrf_token %}
       <button type="submit" class="min-h-11 cursor-pointer rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Mensagem com botões</button>
     </form>
+    <form method="post" action="{% url 'whatsapp:send_test_list' conversation.pk %}"
+          hx-post="{% url 'whatsapp:send_test_list' conversation.pk %}" hx-target="#thread" hx-swap="innerHTML">
+      {% csrf_token %}
+      <button type="submit" class="min-h-11 cursor-pointer rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Mensagem com lista</button>
+    </form>
     <form method="post" action="{% url 'whatsapp:send_test_image' conversation.pk %}"
           hx-post="{% url 'whatsapp:send_test_image' conversation.pk %}" hx-target="#thread" hx-swap="innerHTML">
       {% csrf_token %}

@@ -457,3 +457,23 @@ def test_template_button_during_active_flow_is_not_read_as_answer(contact_says: 
     contact_says(template_button="retomar_sim", title="Sim, continuar")
     assert FlowRun.objects.filter(status=FlowRunStatus.CANCELLED).count() == 1
     assert _run().status == FlowRunStatus.ACTIVE
+
+
+@pytest.mark.django_db
+def test_reaction_is_ignored_by_the_engine(meta_post: Any) -> None:
+    def react() -> None:
+        message = _base() | {
+            "type": "reaction",
+            "reaction": {"message_id": "wamid.x", "emoji": "👍"},
+        }
+        meta_post(_envelope(message))
+
+    react()  # sem fluxo aberto: não inicia o menu
+    assert not FlowRun.objects.exists()
+    assert not _replies()
+
+    meta_post(_envelope(_base() | {"type": "text", "text": {"body": "oi"}}))
+    replies_before = len(_replies())
+    react()  # com o menu aberto: não conta como tentativa
+    assert _run().attempts == 0
+    assert len(_replies()) == replies_before

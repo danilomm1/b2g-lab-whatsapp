@@ -220,3 +220,18 @@ def test_detail_shows_flow_and_gives_conversation_back_to_assistant(admin_client
     conversation.refresh_from_db()
     assert run.status == FlowRunStatus.COMPLETED
     assert conversation.status == ConversationStatus.OPEN
+
+
+@pytest.mark.django_db
+def test_test_list_message_in_dry_run(admin_client: Client) -> None:
+    conversation = _conversation()
+
+    response = admin_client.post(
+        reverse("whatsapp:send_test_list", args=[conversation.pk]), headers=HTMX
+    )
+
+    assert "Simulada" in response.content.decode()
+    sent = Message.objects.get(direction=MessageDirection.OUTBOUND)
+    sections = sent.raw_payload["request"]["interactive"]["action"]["sections"]
+    assert [s["title"] for s in sections] == ["Esta semana", "Próxima semana"]
+    assert sections[0]["rows"][1]["id"] == "teste_qua_15"
