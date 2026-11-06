@@ -136,6 +136,10 @@ WHATSAPP_BUSINESS_ACCOUNT_ID = env.str("WHATSAPP_BUSINESS_ACCOUNT_ID", default="
 # teste da Meta; o comercial definitivo fica em WHATSAPP_BUSINESS_NUMBER (CLAUDE.md, 5.6)
 WHATSAPP_PHONE_NUMBER_ID = env.str("WHATSAPP_PHONE_NUMBER_ID", default="")
 WHATSAPP_BUSINESS_NUMBER = env.str("WHATSAPP_BUSINESS_NUMBER", default="")
+# Pausa entre as mensagens de um mesmo passo do fluxo: a Meta não garante a ordem
+WHATSAPP_FLOW_SEND_DELAY = env.float("WHATSAPP_FLOW_SEND_DELAY", default=1.0)
+# Link mostrado no aviso de privacidade do primeiro contato (CLAUDE.md, seção 13)
+PRIVACY_POLICY_URL = env.str("PRIVACY_POLICY_URL", default="")
 
 LOGGING = {
     "version": 1,

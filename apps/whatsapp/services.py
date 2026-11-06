@@ -11,8 +11,10 @@ Bloqueios levantam SendBlocked e nada é gravado; simulações e falhas da API v
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
+from django.conf import settings
 from django.utils import timezone
 
 from apps.core.models import (
@@ -31,6 +33,7 @@ from apps.meta_business.client import GraphAPIError
 
 from .client import WhatsAppClient, default_phone_number_id
 from .inbound import open_conversation
+from .models import MessageTemplate
 from .payloads import OutboundPayload
 
 logger = logging.getLogger(__name__)
@@ -80,6 +83,8 @@ def send_message(
     conversation = conversation or open_conversation(contact, phone_number_id)
     target = recipient_fields(contact)
 
+    if outbound.is_template:
+        _check_template_status(outbound)
     if not conversation.is_service_window_open():
         if not outbound.is_template:
             raise SendBlocked("Fora da janela de 24h: só um template aprovado pode ser enviado")
@@ -144,6 +149,59 @@ def send_message(
     message.raw_payload = {**message.raw_payload, "response": response}
     message.save(update_fields=["external_id", "raw_payload"])
     return _touch(conversation, message)
+
+
+def _check_template_status(outbound: OutboundPayload) -> None:
+    """Barra template sabidamente não aprovado; sem registro local, deixa a Meta decidir."""
+    data = outbound.data.get("template", {})
+    stored = MessageTemplate.objects.filter(
+        name=data.get("name", ""), language=data.get("language", {}).get("code", "")
+    ).first()
+    if stored is not None and not stored.is_approved:
+        raise SendBlocked(f"Template {stored.name} [{stored.language}] está {stored.status}")
+
+
+def deliver_outbox(
+    conversation_id: int,
+    items: list[dict[str, Any]],
+    *,
+    reply_to_id: int | None = None,
+    client: WhatsAppClient | None = None,
+) -> list[Message]:
+    """Envia em ordem as mensagens decididas pelo motor de fluxo (tarefa send_outbox).
+
+    Antes, marca a mensagem recebida como lida e mostra "digitando...". Entre um envio e
+    outro espera WHATSAPP_FLOW_SEND_DELAY segundos, porque a Meta não garante a ordem de
+    entrega. Um bloqueio interrompe o resto da caixa e vira evento.
+    """
+    conversation = Conversation.objects.select_related("contact").get(pk=conversation_id)
+    if reply_to_id:
+        reply_to = Message.objects.filter(pk=reply_to_id).first()
+        if reply_to:
+            mark_as_read(reply_to, typing=True, client=client)
+    sent: list[Message] = []
+    for index, item in enumerate(items):
+        if index and settings.WHATSAPP_FLOW_SEND_DELAY:
+            time.sleep(settings.WHATSAPP_FLOW_SEND_DELAY)
+        try:
+            sent.append(
+                send_message(
+                    conversation.contact,
+                    OutboundPayload(**item),
+                    conversation=conversation,
+                    client=client,
+                )
+            )
+        except SendBlocked as exc:
+            record_event(
+                "whatsapp.flow_send_blocked",
+                contact=conversation.contact,
+                channel=Channel.WHATSAPP,
+                summary=str(exc)[:255],
+                data={"conversation_id": conversation_id, "pending": items[index:]},
+            )
+            break
+    return sent
 
 
 def _touch(conversation: Conversation, message: Message) -> Message:

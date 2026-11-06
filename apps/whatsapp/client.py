@@ -17,6 +17,7 @@ PHONE_NUMBER_FIELDS = (
     "display_phone_number,verified_name,quality_rating,code_verification_status,"
     "name_status,platform_type,throughput"
 )
+TEMPLATE_FIELDS = "id,name,status,category,language,components,rejected_reason"
 
 
 def default_phone_number_id() -> str:
@@ -67,6 +68,10 @@ class WhatsAppClient:
     def message_templates(self, waba_id: str) -> list[dict[str, Any]]:
         response = self.graph.get(
             f"{waba_id}/message_templates",
-            {"fields": "name,status,category,language", "limit": 100},
+            {"fields": TEMPLATE_FIELDS, "limit": 100},
         )
         return response.get("data", [])
+
+    def create_template(self, waba_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+        """POST /<WABA_ID>/message_templates: envia o template para a análise da Meta."""
+        return self.graph.post(f"{waba_id}/message_templates", payload)

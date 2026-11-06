@@ -10,6 +10,7 @@ class WhatsAppConfig(AppConfig):
     verbose_name = "WhatsApp"
 
     def ready(self) -> None:
+        from .flows import brave2grow  # noqa: F401  registra os fluxos
         from .webhook import register
 
         register()
