@@ -441,3 +441,19 @@ def test_blocked_outbox_stops_and_records_event() -> None:
 
     event = Event.objects.get(event_type="whatsapp.flow_send_blocked")
     assert len(event.data["pending"]) == 2
+
+
+@pytest.mark.django_db
+def test_template_button_during_active_flow_is_not_read_as_answer(contact_says: Any) -> None:
+    contact_says("oi")
+    assert _run().node == "menu"
+
+    contact_says(template_button="reuniao_cancelar", title="Cancelar")
+
+    assert _replies()[-1].body.startswith("Reunião cancelada.")
+    assert _run().node == "menu"  # o menu continua esperando, sem contar tentativa
+    assert _run().attempts == 0
+
+    contact_says(template_button="retomar_sim", title="Sim, continuar")
+    assert FlowRun.objects.filter(status=FlowRunStatus.CANCELLED).count() == 1
+    assert _run().status == FlowRunStatus.ACTIVE

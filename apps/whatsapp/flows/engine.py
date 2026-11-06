@@ -531,6 +531,9 @@ def handle_inbound(message: Message) -> list[OutboundPayload]:
     run = open_run(conversation)
     typed = normalize(message.body)
     keyword_flow = KEYWORD_FLOWS.get(typed) if message.kind == "text" else None
+    reply_id = str((message.raw_payload or {}).get("reply_id", ""))
+    # Botão de template vale mesmo com fluxo em andamento: não é resposta à pergunta atual
+    template_handler = QUICK_REPLY_HANDLERS.get(reply_id) if message.kind == "button" else None
 
     def start(key: str = DEFAULT_FLOW, **kwargs: Any) -> None:
         start_flow(conversation, key, message=message, outbox=outbox, notices=notices, **kwargs)
@@ -543,6 +546,12 @@ def handle_inbound(message: Message) -> list[OutboundPayload]:
         if run:
             _close(run, FlowRunStatus.CANCELLED)
         start(keyword_flow or DEFAULT_FLOW)
+    elif template_handler:
+        key = template_handler(message, outbox)
+        if key:
+            if run:
+                _close(run, FlowRunStatus.CANCELLED)
+            start(key)
     elif run and run.status == FlowRunStatus.HANDOFF:
         pass  # um humano está atendendo
     elif run and timezone.now() - run.updated_at > RUN_TTL:
@@ -558,15 +567,8 @@ def handle_inbound(message: Message) -> list[OutboundPayload]:
             ctx = FlowContext(run=run, flow=flow, message=message, outbox=outbox, notices=notices)
             _advance(ctx, node.receive(ctx, message))
             run.save()
-    else:
-        reply_id = str((message.raw_payload or {}).get("reply_id", ""))
-        handler = QUICK_REPLY_HANDLERS.get(reply_id) if message.kind == "button" else None
-        if handler:
-            key = handler(message, outbox)
-            if key:
-                start(key)
-        elif _may_auto_start(conversation):
-            start()
+    elif _may_auto_start(conversation):
+        start()
 
     if outbox:
         schedule_outbox(conversation, outbox, reply_to=message)
