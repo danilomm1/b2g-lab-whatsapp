@@ -62,7 +62,7 @@ Observações:
 
 ## Fase 3: preparação (Instagram e Página)
 
-A Fase 3 é desenvolvida no branch `fase-3-instagram-facebook`, criado do `main` numa worktree própria (`../b2g-lab-fase-3`), em paralelo à Fase 2, que ainda não entrou no `main`. Detalhes de cada canal em [instagram.md](instagram.md) e [facebook.md](facebook.md).
+A Fase 3 é desenvolvida no branch `fase-3-instagram-facebook`, a partir do `main` já com a Fase 2 (PR #2). Detalhes de cada canal em [instagram.md](instagram.md) e [facebook.md](facebook.md).
 
 ### Etapas comuns no painel
 
@@ -74,14 +74,15 @@ A Fase 3 é desenvolvida no branch `fase-3-instagram-facebook`, criado do `main`
 ### Ordem do trabalho
 
 1. Painel, token e comandos de conferência (`instagram_check` e `facebook_check`).
-2. Recebimento: handlers das rotas `instagram` e `page`. Não depende da Fase 2.
-3. Envio de DM e Messenger, comentários e resposta privada. Depende do `GraphClient.post` sem repetição da Fase 2: antes deste passo, trazer o `main` com a Fase 2 para o branch da Fase 3.
+2. Recebimento: handlers das rotas `instagram` e `page`.
+3. Envio de DM e Messenger, comentários e resposta privada.
 4. Publicação, insights e telas.
 
-### Dependências e conflitos com a Fase 2
+### O que a Fase 3 reaproveita da Fase 2
 
-- A Fase 3 vai usar do branch da Fase 2: `GraphClient.post` com `idempotent=False`, a fixture `meta_post` de `tests/conftest.py`, as telas de conversa e o motor de fluxo (ADR 0007).
-- Arquivos alterados pelas duas fases, com conflito simples esperado na junção: `config/settings/base.py` (`INSTALLED_APPS`), `config/urls.py`, `templates/base.html` (menu), `tests/conftest.py`, `tests/test_meta_webhook.py`, `.env.example` e a linha "Rota" deste arquivo.
+- `GraphClient.post` com `idempotent=False`: envio sem repetição depois de timeout de leitura ou erro 5xx.
+- O padrão do app `whatsapp`: handler registrado no `ready()`, recebimento idempotente pelo ID externo, identidade escopada pela conta, palavra de saída e `send_message` único com as travas.
+- A fixture `meta_post` de `tests/conftest.py`, as telas de conversa (`/whatsapp/`) e o motor de fluxo (ADR 0007), que hoje é do WhatsApp e pode servir de base para as respostas automáticas do Instagram e do Messenger.
 
 ### Decisões em aberto
 
