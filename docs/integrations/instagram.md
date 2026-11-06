@@ -1,17 +1,21 @@
 # Instagram (@brave2grow)
 
 **Versão da API:** Graph API v26.0 (`META_GRAPH_API_VERSION`) em `graph.facebook.com`, configuração com login unificado (ADR 0008). A v27.0 saiu em 04/11/2026 sem mudança que quebre Instagram; a troca fica para depois da fase.
-**Última revisão:** 06/11/2026 (Fase 3 em preparação; nada validado contra a Meta ainda)
+**Última revisão:** 06/11/2026 (Fase 3 em preparação; painel configurado, código ainda não iniciado)
 
 Base comum (app, usuário do sistema, token, webhook único) em [meta.md](meta.md). A Página e o Messenger ficam em [facebook.md](facebook.md).
 
-## Situação em 06/11/2026
+## O que está configurado (06/11/2026)
 
 - **Configuração:** o caso de uso "API do Instagram" só oferece o login unificado (ADR 0008).
-- **Permissões no caso de uso:** prontas para teste só `business_management`, `pages_show_list` e `public_profile`. Todas as `instagram_*`, o recurso Human Agent e o recurso Business Asset User Profile Access estão com "Adicionar".
-- **Webhook do objeto `instagram`:** a etapa "3. Configurar webhooks" da aba do login unificado está sem URL de callback, portanto sem campos assinados.
-- **Token:** o atual não tem nenhuma permissão do Instagram (meta.md).
-- **Código:** ainda não existe app `instagram`. Entregas com `object: instagram` ficam como "ignoradas", com o payload guardado.
+- **Permissões no caso de uso:** `instagram_basic`, `instagram_manage_comments`, `instagram_manage_messages`, `instagram_content_publish`, `instagram_manage_insights`, Human Agent e Business Asset User Profile Access adicionados ("Pronto para teste"). Algumas também entraram no caso de uso do Messenger, que as compartilha.
+- **Token:** o token novo do usuário do sistema tem as cinco permissões `instagram_*` e alcança a conta @brave2grow (`meta_check` e `/me/assigned_instagram_accounts`).
+- **Webhook do objeto `instagram`:** callback e verify token da Fase 1 na etapa "3. Configurar webhooks" da aba do login unificado, com os campos `comments`, `mentions`, `messages`, `messaging_postbacks`, `message_reactions`, `messaging_seen`, `messaging_referral` e `message_edit` assinados (versão v27.0 dos campos).
+- **Conta inscrita no app:** `POST /<IG_ID>/subscribed_apps` com os mesmos oito campos, confirmado por `GET /<IG_ID>/subscribed_apps`.
+- **Mensagens:** `GET /<IG_ID>/conversations?platform=instagram` respondeu com a lista de conversas, então o acesso às mensagens pela API já está liberado na conta.
+- **Eventos de teste:** os exemplos de `comments` e `messages` do botão "Teste" chegaram ao servidor assinados, com rota `instagram`, e ficaram como "ignorados" (sem handler ainda).
+- **Ainda não feito:** função de testador para uma conta pessoal e publicação do app (meta.md).
+- **Código:** ainda não existe app `instagram`.
 
 ## Como a API funciona nesta configuração
 
@@ -39,7 +43,8 @@ Callback na etapa "3. Configurar webhooks" (mesmo endereço e verify token da Fa
 | `story_insights` | `instagram_manage_insights` | Métricas de stories (só as primeiras 24h) |
 
 - **DM:** `entry[].messaging[]` com `sender.id` (IGSID de quem escreveu), `recipient.id` (a conta), `timestamp` e `message` (`mid`, `text`, `attachments`, `is_echo`, `is_deleted`, `reply_to`). Não existe campo `message_echoes` no Instagram: o eco vem em `messages` com `is_echo: true` e o `sender` é a própria conta. Desde 27/04/2026 o anexo `share` virou `ig_post`; há também `message_edit`.
-- **Comentário:** `entry[].changes[]` com `field: comments` e `value` com `from.id` (IGSID), `from.username`, `comment_id` (o login do Instagram usa `id`; aceitar os dois), `parent_id`, `text`, `media.id` e `media.media_product_type`.
+- **Comentário:** `entry[].changes[]` com `field: comments` e `value` com `from.id` (IGSID), `from.username`, o ID do comentário, `parent_id`, `text`, `media.id` e `media.media_product_type`. A documentação do login do Facebook chama o ID de `comment_id`; o exemplo do painel na v27.0 usa `id` e traz também `from.self_ig_scoped_id`. Aceitar os dois nomes.
+- **Eventos de teste do painel:** o botão "Teste" manda até os campos de mensagem no formato `changes[]` (`field: messages`, `value` com `sender`, `recipient`, `timestamp` e `message`), não em `messaging[]`. O handler precisa aceitar os dois formatos para os testes do painel servirem.
 
 ### Mensagens (Direct)
 
@@ -70,15 +75,18 @@ Callback na etapa "3. Configurar webhooks" (mesmo endereço e verify token da Fa
 - **Comentários por webhook exigem acesso avançado**, que só vem com App Review. A resposta privada no Instagram também lista acesso avançado como requisito. Para app que atende só a própria empresa, a Meta diz que o App Review não é necessário, mas sem ele esses dois recursos ficam de fora.
 - Plano para não depender do App Review: ler comentários por consulta periódica (tarefa do Huey sobre as mídias recentes) e usar o botão "Testar" do painel para validar o formato do webhook.
 
-## Passo a passo no painel (a fazer)
+## Passo a passo no painel
 
-Feito pelo Danilo; as etapas comuns (token novo, funções, publicação do app) estão em [meta.md](meta.md).
+Feito em 06/11/2026 pelo Chrome de depuração (etapas comuns em [meta.md](meta.md)):
 
-1. **Permissões:** caso de uso "API do Instagram" > Permissões e recursos: "Adicionar" em `instagram_basic`, `instagram_manage_comments`, `instagram_manage_messages`, `instagram_content_publish`, `instagram_manage_insights`, no recurso Human Agent e no recurso Business Asset User Profile Access (nome e foto de quem interage). `ads_read` só se a moderação de comentários pedir.
-2. **Mensagens no app do Instagram:** na conta @brave2grow, ligar "Permitir acesso às mensagens" (caminho na seção Mensagens acima).
-3. **Testador:** Funções do app > Funções > Testadores do Instagram: convidar o @ pessoal do Danilo e aceitar o convite no Instagram dele (a confirmar onde o convite aparece).
-4. **Webhook:** aba "API setup with Unified login" > "3. Configurar webhooks": mesmo callback e verify token da Fase 1, "Verificar e salvar", e assinar `messages`, `messaging_postbacks`, `message_reactions`, `messaging_seen`, `comments` e `mentions`.
-5. **Inscrição da conta:** `POST /<IG_ID>/subscribed_apps`, pelo comando de conferência do laboratório (como o WhatsApp fez na Fase 2).
+1. **Permissões:** caso de uso "API do Instagram" > Permissões e recursos > "Adicionar" em cada permissão e recurso da tabela abaixo. Quando a permissão existe em outro caso de uso, o painel avisa "afetará outros casos de uso" e pede confirmação. `ads_read` fica para quando a moderação de comentários pedir.
+2. **Webhook:** aba "API setup with Unified login" > "3. Configurar webhooks": callback e verify token da Fase 1, "Verificar e salvar" e, na tabela "Campos do webhook" que aparece em seguida, ligar o interruptor "Assinar" de cada campo.
+3. **Inscrição da conta:** `POST /<IG_ID>/subscribed_apps` com `subscribed_fields` iguais aos do painel, com o token do usuário do sistema. O comando de conferência do laboratório vai repetir e conferir isso.
+
+Falta:
+
+4. **Testador:** Funções do app > Funções > Testadores do Instagram: convidar o @ pessoal do Danilo e aceitar o convite no Instagram dele (a confirmar onde o convite aparece).
+5. **Acesso às mensagens:** se algum envio devolver o erro 200 citado acima, ligar "Permitir acesso às mensagens" no app do Instagram da @brave2grow.
 
 ## Plano de implementação (`apps/instagram`)
 
@@ -100,20 +108,21 @@ Ordem e dependências da fase em [meta.md](meta.md).
 
 | Permissão ou recurso | Uso | Situação |
 |---|---|---|
-| `instagram_basic` | Perfil, mídias, contas do usuário do sistema | a adicionar |
-| `instagram_manage_messages` | Direct e resposta privada | a adicionar |
-| `instagram_manage_comments` | Comentários e menções | a adicionar |
-| `instagram_content_publish` | Publicação | a adicionar |
-| `instagram_manage_insights` | Insights | a adicionar |
-| Human Agent | Tag `HUMAN_AGENT` (7 dias) | a adicionar |
-| Business Asset User Profile Access | Nome e foto de quem interage | a adicionar |
+| `instagram_basic` | Perfil, mídias, contas do usuário do sistema | no token |
+| `instagram_manage_messages` | Direct e resposta privada | no token |
+| `instagram_manage_comments` | Comentários e menções | no token |
+| `instagram_content_publish` | Publicação | no token |
+| `instagram_manage_insights` | Insights | no token |
+| Human Agent | Tag `HUMAN_AGENT` (7 dias) | adicionado (recurso, acesso padrão) |
+| Business Asset User Profile Access | Nome e foto de quem interage | adicionado (recurso, acesso padrão) |
 | `ads_read` | Só se a moderação de comentários exigir | sob demanda |
 
 Acesso avançado (App Review) só seria pedido para receber comentários por webhook e para a resposta privada, se a consulta periódica não bastar.
 
 ## O que funcionou
 
-Nada validado ainda.
+- 06/11/2026: permissões adicionadas, token novo com acesso à conta, webhook verificado e conta inscrita no app. Eventos de teste de `comments` e `messages` chegaram ao servidor assinados, com rota `instagram`.
+- Ainda sem evento real de pessoa (falta testador e, pela documentação, o app publicado).
 
 ## Limitações encontradas
 

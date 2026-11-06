@@ -1,16 +1,20 @@
 # Facebook (Página da Brave2Grow e Messenger)
 
 **Versão da API:** Graph API v26.0 (`META_GRAPH_API_VERSION`). A v27.0 saiu em 04/11/2026 só com mudanças aditivas em Páginas; a troca fica para depois da fase.
-**Última revisão:** 06/11/2026 (Fase 3 em preparação; nada validado contra a Meta ainda)
+**Última revisão:** 06/11/2026 (Fase 3 em preparação; painel configurado, código ainda não iniciado)
 
 Base comum (app, usuário do sistema, token, webhook único) em [meta.md](meta.md). O Instagram fica em [instagram.md](instagram.md).
 
-## Situação em 06/11/2026
+## O que está configurado (06/11/2026)
 
-- **Caso de uso "Gerenciar tudo na sua Página":** prontas para teste `business_management`, `pages_manage_metadata`, `pages_show_list` e `public_profile`. Com "Adicionar": `pages_read_engagement`, `pages_manage_posts`, `pages_manage_engagement`, `pages_read_user_content`, `read_insights`, Page Mentions e Business Asset User Profile Access.
-- **Caso de uso Messenger:** prontas para teste `pages_messaging`, `pages_manage_metadata` e `pages_show_list`. Human Agent com "Adicionar".
-- **Webhook:** callback configurado na Fase 1 pelo caso de uso do Messenger; o evento de teste do campo `messages` chegou assinado com rota `page`. O app ainda não foi conectado à Página (Configurações da API do Messenger > 2. Gere tokens de acesso), então eventos reais da Página não chegam.
+- **Caso de uso "Gerenciar tudo na sua Página":** `pages_read_engagement`, `pages_manage_posts`, `pages_manage_engagement`, `pages_read_user_content`, `read_insights` e Business Asset User Profile Access adicionados, junto com os que já estavam (`pages_manage_metadata`, `pages_show_list`, `business_management`). Page Mentions ficou de fora.
+- **Caso de uso Messenger:** `pages_messaging`, `pages_manage_metadata`, `pages_show_list` e, agora, Human Agent e `pages_read_engagement` (compartilhados com os outros casos de uso).
+- **Token:** o token novo do usuário do sistema tem todas as permissões de Página da tabela abaixo. O token da Página sai dele por `GET /<PAGE_ID>?fields=access_token`.
+- **Webhook do objeto `page`:** callback da Fase 1 (caso de uso Messenger > Configurações da API do Messenger > "1. Configure webhooks") com `feed`, `messages`, `messaging_postbacks`, `message_echoes`, `message_deliveries`, `message_reads`, `message_reactions`, `message_edits` e `messaging_referrals` assinados (versão v27.0 dos campos).
+- **App inscrito na Página:** `POST /<PAGE_ID>/subscribed_apps` com os mesmos nove campos e o token da Página, confirmado por `GET /<PAGE_ID>/subscribed_apps`. Isso substitui o "2. Gere tokens de acesso" do painel do Messenger.
+- **Evento de teste:** o exemplo de `feed` do botão "Teste" (um post de status) chegou ao servidor.
 - **Usuário do sistema:** a Página está atribuída com acesso total (meta.md).
+- **Ainda não feito:** função de testador para uma conta pessoal do Facebook e publicação do app (meta.md).
 - **Código:** ainda não existe app `facebook`. Entregas com `object: page` ficam como "ignoradas", com o payload guardado.
 
 ## Como a API funciona
@@ -56,15 +60,18 @@ Resumo da documentação oficial lida em 06/11/2026 (Pages API e Messenger Platf
 - Com acesso padrão, as permissões e os recursos só valem para pessoas com função no app. A conta pessoal do Facebook usada nos testes precisa de função no app (Funções do app > Funções, como Testador).
 - O evento de teste da Fase 1 chegou com o app não publicado. Eventos reais de pessoas talvez exijam o app publicado, como a documentação do Instagram diz. Decisão em aberto em [meta.md](meta.md).
 
-## Passo a passo no painel (a fazer)
+## Passo a passo no painel
 
-Feito pelo Danilo; as etapas comuns (token novo, funções, publicação do app) estão em [meta.md](meta.md).
+Feito em 06/11/2026 pelo Chrome de depuração (etapas comuns em [meta.md](meta.md)):
 
-1. **Permissões da Página:** caso de uso "Gerenciar tudo na sua Página" > Permissões e recursos: "Adicionar" em `pages_read_engagement`, `pages_manage_posts`, `pages_manage_engagement`, `pages_read_user_content`, `read_insights` e Business Asset User Profile Access.
-2. **Messenger:** caso de uso Messenger > Permissões e recursos: "Adicionar" no recurso Human Agent.
-3. **Conectar a Página:** Configurações da API do Messenger > "2. Gere tokens de acesso" > conectar a Página Brave2Grow. O token que essa tela mostra não precisa ir para o `.env`: o laboratório obtém o token da Página pelo usuário do sistema.
-4. **Campos do webhook:** na mesma tela, em "1. Configure webhooks", assinar `messages`, `messaging_postbacks`, `message_echoes`, `message_reads`, `message_reactions` e `feed` (se `feed` não aparecer ali, ele fica no caso de uso da Página).
-5. **Inscrição na Página:** `POST /<PAGE_ID>/subscribed_apps`, pelo comando de conferência do laboratório.
+1. **Permissões da Página:** caso de uso "Gerenciar tudo na sua Página" > Permissões e recursos > "Adicionar" em cada permissão da tabela abaixo.
+2. **Messenger:** caso de uso Messenger > Permissões e recursos > "Adicionar" no recurso Human Agent.
+3. **Campos do webhook:** Configurações da API do Messenger > "1. Configure webhooks" > tabela "Campos do webhook": ligar o interruptor "Assinar" de cada campo. O `feed` fica nessa mesma tabela.
+4. **Inscrição na Página:** `POST /<PAGE_ID>/subscribed_apps` com o token da Página, em vez da tela "2. Gere tokens de acesso". O comando de conferência do laboratório vai repetir e conferir isso.
+
+Falta:
+
+5. **Testador:** a conta pessoal do Facebook do Danilo como Testador do app (Funções do app > Funções > Adicionar pessoas), com o convite aceito por ele.
 
 ## Plano de implementação (`apps/facebook`)
 
@@ -89,17 +96,19 @@ Ordem e dependências da fase em [meta.md](meta.md).
 | `pages_show_list` | Listar a Página e obter o token dela | no token |
 | `pages_manage_metadata` | Inscrever o app na Página (webhooks) | no token |
 | `pages_messaging` | Messenger e resposta privada | no token |
-| `pages_read_engagement` | Posts, comentários e seguidores | a adicionar |
-| `pages_read_user_content` | Comentários de usuários | a adicionar |
-| `pages_manage_engagement` | Responder e ocultar comentários | a adicionar |
-| `pages_manage_posts` | Publicar | a adicionar |
-| `read_insights` | Insights | a adicionar |
-| Human Agent | Tag `HUMAN_AGENT` (7 dias) | a adicionar |
-| Business Asset User Profile Access | Nome e foto de quem interage | a adicionar |
+| `pages_read_engagement` | Posts, comentários e seguidores | no token |
+| `pages_read_user_content` | Comentários de usuários | no token |
+| `pages_manage_engagement` | Responder e ocultar comentários | no token |
+| `pages_manage_posts` | Publicar | no token |
+| `read_insights` | Insights | no token |
+| Human Agent | Tag `HUMAN_AGENT` (7 dias) | adicionado (recurso, acesso padrão) |
+| Business Asset User Profile Access | Nome e foto de quem interage | adicionado (recurso, acesso padrão) |
 
 ## O que funcionou
 
-Nada validado ainda nesta fase. Na Fase 1, o evento de teste do campo `messages` chegou assinado e roteado como `page` (meta.md).
+- Fase 1: o evento de teste do campo `messages` chegou assinado e roteado como `page` (meta.md).
+- 06/11/2026: permissões adicionadas, token novo com as permissões de Página, token da Página obtido pelo usuário do sistema, nove campos assinados e app inscrito na Página. O exemplo de `feed` chegou ao servidor.
+- Ainda sem evento real de pessoa (falta testador).
 
 ## Limitações encontradas
 

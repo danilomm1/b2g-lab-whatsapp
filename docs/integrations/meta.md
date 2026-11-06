@@ -12,8 +12,8 @@ O passo a passo detalhado, tela por tela, está em [docs/treinamento/configurar-
 - **Portfólio:** "Brave2Grow Tecnologia", com verificação da empresa concluída (veio junto com o Meta Verified para empresas, contratado em 03/11/2026). Administrado pelo usuário do Facebook "Bravo To Grow", um usuário operacional da Brave2Grow.
 - **App:** "B2G Integrations Lab", criado em 06/11/2026 no sistema novo de casos de uso, ligado ao portfólio, ainda não publicado (modo de desenvolvimento). Casos de uso: WhatsApp ("Conectar-se com clientes pelo WhatsApp"), Página ("Gerenciar tudo na sua Página"), Instagram ("Gerenciar mensagens e conteúdo no Instagram") e Messenger ("Interagir com os clientes no Messenger"). App ID e App Secret em `META_APP_ID` e `META_APP_SECRET`.
 - **Usuário do sistema:** "B2G Lab API", função Admin. Ativos atribuídos: Página Brave2Grow (acesso total), app B2G Integrations Lab (gerenciar app) e Instagram @brave2grow (conteúdo, mensagens, atividade da comunidade e insights).
-- **Token do usuário do sistema:** sem expiração, em `META_SYSTEM_USER_TOKEN` e criptografado em `IntegrationCredential` (`meta` / `system_user`) pelo `meta_check`. Permissões: `business_management`, `pages_show_list`, `pages_manage_metadata`, `pages_messaging`, `whatsapp_business_management`, `whatsapp_business_messaging` (e `public_profile`, automática).
-- **Webhook:** configurado no caso de uso do Messenger (Configurações da API do Messenger > 1. Configure webhooks) com callback `https://<domínio do servidor>/webhooks/meta/` (EC2 `b2g-labs-meta`, ADR 0005; domínio no `deploy.py` local) e o `META_WEBHOOK_VERIFY_TOKEN`. Nenhum campo assinado ainda.
+- **Token do usuário do sistema:** sem expiração, em `META_SYSTEM_USER_TOKEN` e criptografado em `IntegrationCredential` (`meta` / `system_user`) pelo `meta_check`. O token atual foi gerado em 06/11/2026, na Fase 3, com as 16 permissões da tabela abaixo (e `public_profile`, automática). O anterior, só com as permissões das Fases 1 e 2, não foi revogado e ainda está no `.env` do servidor.
+- **Webhook:** configurado no caso de uso do Messenger (Configurações da API do Messenger > 1. Configure webhooks) com callback `https://<domínio do servidor>/webhooks/meta/` (EC2 `b2g-labs-meta`, ADR 0005; domínio no `deploy.py` local) e o `META_WEBHOOK_VERIFY_TOKEN`. Campos assinados: os do objeto `page` nessa mesma tela ([facebook.md](facebook.md)), os do objeto `instagram` na aba do login unificado do caso de uso do Instagram ([instagram.md](instagram.md)) e os do `whatsapp_business_account` pela API ([whatsapp.md](whatsapp.md)).
 - **WhatsApp:** a conta que existe no portfólio é do tipo "Aplicativo WhatsApp Business" (o número usado no app comum). Ela não vai para `WHATSAPP_BUSINESS_ACCOUNT_ID`: a Fase 2 começa pelo número de teste, e a migração do número real depende da decisão sobre coexistência (CLAUDE.md, 5.6).
 
 ## Como o laboratório integra
@@ -43,19 +43,19 @@ O passo a passo detalhado, tela por tela, está em [docs/treinamento/configurar-
 | `pages_show_list` | Listar as Páginas | 3 | sim |
 | `pages_manage_metadata` | Assinar webhooks da Página | 3 | sim |
 | `pages_messaging` | Messenger | 3 | sim |
-| `pages_read_engagement` | Posts, seguidores e engajamento | 3 | não |
-| `pages_manage_posts` | Publicar na Página | 3 | não |
-| `pages_manage_engagement` | Responder e curtir comentários | 3 | não |
-| `pages_read_user_content` | Ler comentários de usuários | 3 | não |
-| `read_insights` | Insights da Página | 3 | não |
-| `instagram_basic` | Perfil e mídias | 3 | não |
-| `instagram_manage_comments` | Comentários | 3 | não |
-| `instagram_manage_messages` | Direct | 3 | não |
-| `instagram_content_publish` | Publicação | 3 | não |
-| `instagram_manage_insights` | Insights | 3 | não |
+| `pages_read_engagement` | Posts, seguidores e engajamento | 3 | sim |
+| `pages_manage_posts` | Publicar na Página | 3 | sim |
+| `pages_manage_engagement` | Responder e curtir comentários | 3 | sim |
+| `pages_read_user_content` | Ler comentários de usuários | 3 | sim |
+| `read_insights` | Insights da Página | 3 | sim |
+| `instagram_basic` | Perfil e mídias | 3 | sim |
+| `instagram_manage_comments` | Comentários | 3 | sim |
+| `instagram_manage_messages` | Direct | 3 | sim |
+| `instagram_content_publish` | Publicação | 3 | sim |
+| `instagram_manage_insights` | Insights | 3 | sim |
 
 Observações:
-- No sistema novo de casos de uso, a tela "Gerar token" só oferece as permissões já adicionadas ao caso de uso. As que estão como "não" aparecem com o botão "Adicionar" em Painel > Personalizar caso de uso > Permissões e recursos. Adicionar e gerar um token novo na Fase 3.
+- No sistema novo de casos de uso, a tela "Gerar token" só oferece as permissões já adicionadas ao caso de uso. As que estão como "não" aparecem com o botão "Adicionar" em Painel > Personalizar caso de uso > Permissões e recursos. As da Fase 3 foram adicionadas e entraram no token em 06/11/2026.
 - O app está em modo de desenvolvimento: funciona com os ativos do próprio portfólio e com quem tem função no app. Para dados de terceiros, publicar o app e passar pela análise (App Review).
 - A família `instagram_business_*` (login do Instagram) não está disponível para este app: o Instagram usa o login unificado, com as permissões `instagram_*` e o token do usuário do sistema (ADR 0008).
 - Uma permissão sem uso por 90 dias precisa ser concedida de novo.
@@ -66,8 +66,8 @@ A Fase 3 é desenvolvida no branch `fase-3-instagram-facebook`, a partir do `mai
 
 ### Etapas comuns no painel
 
-1. **Permissões nos casos de uso:** as listas estão em instagram.md e facebook.md.
-2. **Token novo:** Configurações do negócio > Usuários do sistema > "B2G Lab API" > Gerar token, marcando as 6 permissões atuais mais as novas. Atualizar `META_SYSTEM_USER_TOKEN` no `.env` local e no do servidor, ao mesmo tempo, porque o WhatsApp da Fase 2 usa o mesmo token, e rodar `meta_check`. Revogar o token antigo só depois de conferir o novo.
+1. **Permissões nos casos de uso** (feito em 06/11/2026): as listas estão em instagram.md e facebook.md.
+2. **Token novo** (feito em 06/11/2026): Configurações do negócio > Usuários do sistema > "B2G Lab API" > Generate token > app B2G Integrations Lab > expiração "Never" > as 16 permissões. A tela avisa "You are not an admin of this app" mesmo com o usuário administrador; todas as permissões apareceram assim mesmo. O `meta_check` confirmou: válido, sem expiração, alcançando Página, Instagram e WhatsApp. O token está no `.env` local; **o do servidor ainda tem o anterior** e precisa ser trocado antes de publicar o código da Fase 3 (o `deploy.py` só cria o `.env` do servidor na primeira vez). Revogar o token antigo depois disso.
 3. **Funções para os testes:** a conta pessoal do Facebook do Danilo como Testador do app (Funções do app > Funções) e o @ pessoal do Instagram como Testador do Instagram. Com acesso padrão, quem não tem função no app não gera evento nem recebe mensagem.
 4. **Publicação do app (decisão em aberto):** a documentação de webhooks do Instagram exige o app publicado (Live) para entregar notificações de usuários do app, mesmo sem App Review. Publicar pede, em Configurações do app > Básico, URL da política de privacidade, URL ou instruções de exclusão de dados, ícone e categoria. Com acesso padrão, o app publicado continua servindo só quem tem função nele. A Meta recomenda publicar no fim do desenvolvimento; a proposta é publicar quando o recebimento da Fase 3 estiver no servidor.
 
