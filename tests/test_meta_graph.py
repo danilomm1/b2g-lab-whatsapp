@@ -108,6 +108,60 @@ def test_network_error_gives_up_after_max_retries() -> None:
 
 
 @respx.mock
+def test_post_sends_json_body() -> None:
+    route = respx.post(f"{GRAPH}/444/messages").mock(
+        return_value=httpx.Response(200, json={"messages": [{"id": "wamid.1"}]})
+    )
+    client, _ = _client()
+
+    client.post("444/messages", {"type": "text", "text": {"body": "oi"}})
+
+    assert json.loads(route.calls.last.request.content) == {
+        "type": "text",
+        "text": {"body": "oi"},
+    }
+
+
+@respx.mock
+@pytest.mark.parametrize(
+    "failure",
+    [
+        httpx.ReadTimeout("sem resposta"),  # a Meta pode ter recebido e enviado
+        httpx.Response(500, json={"error": {"code": 131000, "message": "erro interno"}}),
+    ],
+)
+def test_non_idempotent_post_is_not_retried_when_it_may_have_run(failure: Any) -> None:
+    route = respx.post(f"{GRAPH}/444/messages").mock(side_effect=[failure])
+    client, sleeps = _client()
+
+    with pytest.raises(GraphAPIError):
+        client.post("444/messages", {"type": "text"})
+
+    assert route.call_count == 1
+    assert sleeps == []
+
+
+@respx.mock
+@pytest.mark.parametrize(
+    "failure",
+    [
+        httpx.ConnectError("sem rede"),  # nada chegou à Meta
+        _graph_error(130429),  # limite de vazão do WhatsApp: a chamada foi recusada
+    ],
+)
+def test_non_idempotent_post_is_retried_when_nothing_ran(failure: Any) -> None:
+    route = respx.post(f"{GRAPH}/444/messages").mock(
+        side_effect=[failure, httpx.Response(200, json={"messages": [{"id": "wamid.1"}]})]
+    )
+    client, sleeps = _client()
+
+    client.post("444/messages", {"type": "text"})
+
+    assert route.call_count == 2
+    assert sleeps == [1.0]
+
+
+@respx.mock
 def test_server_error_without_json_is_transient() -> None:
     respx.get(f"{GRAPH}/me").mock(
         side_effect=[httpx.Response(503, text="indisponível"), httpx.Response(200, json={})]
