@@ -22,8 +22,17 @@ https://LAB_DOMAIN {
 		-Server
 	}
 
+	# A verificação de webhook da Meta manda o verify token na URL, com ponto e com
+	# sublinhado; o valor é trocado antes de ir para o arquivo
 	log {
 		output file /var/log/caddy/b2g-lab.log
+		format filter {
+			wrap json
+			request>uri query {
+				replace hub.verify_token REDACTED
+				replace hub_verify_token REDACTED
+			}
+		}
 	}
 }
 
