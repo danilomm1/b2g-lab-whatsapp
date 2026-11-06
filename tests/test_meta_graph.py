@@ -20,7 +20,7 @@ from apps.meta_business.services import (
     sync_system_user_credential,
 )
 
-GRAPH = "https://graph.facebook.com/v26.0"
+GRAPH = "https://graph.facebook.com/v27.0"
 TOKEN = "token-de-teste-do-system-user"
 
 DEBUG_TOKEN_DATA = {

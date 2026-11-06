@@ -141,7 +141,7 @@ def test_reply_without_htmx_redirects_back(admin_client: Client) -> None:
 def test_real_reply_and_test_buttons_go_to_the_api(admin_client: Client, settings: Any) -> None:
     settings.LAB_DRY_RUN = False
     settings.LAB_ALLOWED_RECIPIENTS = [PHONE]
-    route = respx.post("https://graph.facebook.com/v26.0/444/messages").mock(
+    route = respx.post("https://graph.facebook.com/v27.0/444/messages").mock(
         side_effect=[
             httpx.Response(200, json={"messages": [{"id": "wamid.TXT"}]}),
             httpx.Response(200, json={"messages": [{"id": "wamid.BTN"}]}),

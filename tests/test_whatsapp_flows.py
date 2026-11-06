@@ -403,7 +403,7 @@ def test_engine_crash_keeps_message_and_records_event(
 def test_deliver_outbox_marks_read_with_typing_then_sends_in_order(settings: Any) -> None:
     settings.LAB_DRY_RUN = False
     settings.LAB_ALLOWED_RECIPIENTS = ["+5511987654321"]
-    route = respx.post("https://graph.facebook.com/v26.0/444/messages").mock(
+    route = respx.post("https://graph.facebook.com/v27.0/444/messages").mock(
         side_effect=[
             httpx.Response(200, json={"success": True}),
             httpx.Response(200, json={"messages": [{"id": "wamid.out.1"}]}),

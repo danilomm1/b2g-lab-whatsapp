@@ -30,7 +30,7 @@ from apps.whatsapp.templates_catalog import (
     get_template,
 )
 
-GRAPH = "https://graph.facebook.com/v26.0"
+GRAPH = "https://graph.facebook.com/v27.0"
 
 
 def test_catalog_entries_are_valid_and_unique() -> None:
