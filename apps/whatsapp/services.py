@@ -44,6 +44,22 @@ logger = logging.getLogger(__name__)
 
 SIMULATED_WAMID_PREFIX = "wamid.simulado."
 
+# Extensões dos tipos que o WhatsApp usa; o mimetypes do sistema nem sempre conhece todos
+# (no servidor, image/webp virava .bin)
+MEDIA_EXTENSIONS = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "audio/ogg": ".ogg",
+    "audio/mpeg": ".mp3",
+    "audio/aac": ".aac",
+    "audio/amr": ".amr",
+    "audio/mp4": ".m4a",
+    "video/mp4": ".mp4",
+    "video/3gpp": ".3gp",
+    "application/pdf": ".pdf",
+}
+
 
 class SendBlocked(Exception):
     """Envio barrado por uma trava do laboratório; a mensagem não saiu nem foi gravada."""
@@ -273,7 +289,7 @@ def store_inbound_media(message_id: int, *, client: WhatsAppClient | None = None
         if own_client:
             client.close()
     mime_type = str(info.get("mime_type", "")).split(";")[0]
-    extension = mimetypes.guess_extension(mime_type) or ".bin"
+    extension = MEDIA_EXTENSIONS.get(mime_type) or mimetypes.guess_extension(mime_type) or ".bin"
     relative = f"{message.created_at:%Y/%m}/{message.pk}-{media_id[-8:]}{extension}"
     target = Path(settings.WHATSAPP_MEDIA_DIR) / relative
     target.parent.mkdir(parents=True, exist_ok=True)

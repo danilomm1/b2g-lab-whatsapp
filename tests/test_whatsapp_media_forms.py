@@ -251,7 +251,7 @@ def test_store_inbound_media_is_idempotent(media_dir: Path) -> None:
     second = store_inbound_media(message.pk)
 
     assert first == second
-    assert first.endswith(".oga") or first.endswith(".ogg")
+    assert first.endswith(".ogg")
     assert route.call_count == 1
 
 
