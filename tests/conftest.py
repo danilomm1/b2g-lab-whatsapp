@@ -9,6 +9,7 @@ from django.conf import settings
 from django.http import HttpResponse
 from django.test import Client
 
+from apps.meta_business.webhook import SIGNATURE_HEADER as META_SIGNATURE_HEADER
 from apps.webhooks.lab import SIGNATURE_HEADER
 from apps.webhooks.signatures import sign_body
 
@@ -28,6 +29,27 @@ def lab_post(client: Client, django_capture_on_commit_callbacks: Any) -> LabPost
                 data=body,
                 content_type="application/json",
                 headers={SIGNATURE_HEADER: signature, **headers},
+            )
+
+    return post
+
+
+MetaPost = Callable[..., HttpResponse]
+
+
+@pytest.fixture
+def meta_post(client: Client, django_capture_on_commit_callbacks: Any) -> MetaPost:
+    """Envia um webhook da Meta assinado com o App Secret, executando os callbacks on_commit."""
+
+    def post(payload: dict[str, Any], *, secret: str | None = None) -> HttpResponse:
+        body = json.dumps(payload).encode()
+        signature = sign_body(settings.META_APP_SECRET if secret is None else secret, body)
+        with django_capture_on_commit_callbacks(execute=True):
+            return client.post(
+                "/webhooks/meta/",
+                data=body,
+                content_type="application/json",
+                headers={META_SIGNATURE_HEADER: signature},
             )
 
     return post

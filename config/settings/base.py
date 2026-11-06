@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     "apps.credentials",
     "apps.webhooks",
     "apps.meta_business",
+    "apps.whatsapp",
 ]
 
 MIDDLEWARE = [
@@ -131,6 +132,10 @@ META_WEBHOOK_VERIFY_TOKEN = env.str("META_WEBHOOK_VERIFY_TOKEN", default="")
 FACEBOOK_PAGE_ID = env.str("FACEBOOK_PAGE_ID", default="")
 INSTAGRAM_BUSINESS_ACCOUNT_ID = env.str("INSTAGRAM_BUSINESS_ACCOUNT_ID", default="")
 WHATSAPP_BUSINESS_ACCOUNT_ID = env.str("WHATSAPP_BUSINESS_ACCOUNT_ID", default="")
+# Número que envia as mensagens (ID da Cloud API, não o telefone). Começa pelo número de
+# teste da Meta; o comercial definitivo fica em WHATSAPP_BUSINESS_NUMBER (CLAUDE.md, 5.6)
+WHATSAPP_PHONE_NUMBER_ID = env.str("WHATSAPP_PHONE_NUMBER_ID", default="")
+WHATSAPP_BUSINESS_NUMBER = env.str("WHATSAPP_BUSINESS_NUMBER", default="")
 
 LOGGING = {
     "version": 1,

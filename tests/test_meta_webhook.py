@@ -1,6 +1,5 @@
 """Testes do provedor de webhook da Meta: handshake, assinatura e roteamento por object."""
 
-import json
 from collections.abc import Iterator
 from typing import Any
 
@@ -8,10 +7,8 @@ import pytest
 from django.conf import settings
 from django.test import Client
 
-from apps.meta_business.webhook import SIGNATURE_HEADER
 from apps.webhooks.models import DeliveryStatus, WebhookDelivery
 from apps.webhooks.registry import registry
-from apps.webhooks.signatures import sign_body
 
 WHATSAPP_PAYLOAD = {
     "object": "whatsapp_business_account",
@@ -31,22 +28,6 @@ WHATSAPP_PAYLOAD = {
         }
     ],
 }
-
-
-@pytest.fixture
-def meta_post(client: Client, django_capture_on_commit_callbacks: Any) -> Any:
-    def post(payload: dict[str, Any], *, secret: str | None = None) -> Any:
-        body = json.dumps(payload).encode()
-        signature = sign_body(settings.META_APP_SECRET if secret is None else secret, body)
-        with django_capture_on_commit_callbacks(execute=True):
-            return client.post(
-                "/webhooks/meta/",
-                data=body,
-                content_type="application/json",
-                headers={SIGNATURE_HEADER: signature},
-            )
-
-    return post
 
 
 def _handshake(client: Client, **overrides: str) -> Any:
@@ -97,8 +78,8 @@ def test_signed_event_is_routed_by_object(meta_post: Any) -> None:
     assert delivery.provider == "meta"
     assert delivery.signature_valid
     assert delivery.route_key == "whatsapp_business_account"
-    # O handler do WhatsApp chega na Fase 2; até lá a entrega fica registrada e ignorada
-    assert delivery.status == DeliveryStatus.IGNORED
+    # Processada pelo handler do app whatsapp (Fase 2)
+    assert delivery.status == DeliveryStatus.PROCESSED
 
 
 @pytest.mark.django_db
@@ -135,11 +116,12 @@ def test_registered_channel_handler_receives_its_object(
     meta_post: Any, page_handler: list[WebhookDelivery]
 ) -> None:
     meta_post({"object": "page", "entry": [{"id": "111", "messaging": []}]})
-    meta_post(WHATSAPP_PAYLOAD)
+    # Instagram ainda sem handler (Fase 3): a entrega fica registrada e ignorada
+    meta_post({"object": "instagram", "entry": [{"id": "222", "changes": []}]})
 
     assert [d.route_key for d in page_handler] == ["page"]
     statuses = dict(WebhookDelivery.objects.values_list("route_key", "status"))
     assert statuses == {
         "page": DeliveryStatus.PROCESSED,
-        "whatsapp_business_account": DeliveryStatus.IGNORED,
+        "instagram": DeliveryStatus.IGNORED,
     }
