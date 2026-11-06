@@ -1,21 +1,26 @@
 # WhatsApp (Cloud API)
 
 **Versão da API:** Graph API v26.0 (`META_GRAPH_API_VERSION`), a mesma da Fase 1. Os exemplos atuais da documentação do WhatsApp já usam a v27.0, mas a tabela de versões da Graph API ainda não a lista; a troca fica para quando ela aparecer lá.
-**Última revisão:** 06/11/2026 (Fase 2 em andamento)
+**Última revisão:** 06/11/2026 (Fase 2 em andamento: recebimento validado contra a Meta real)
 
 ## O que está configurado
 
 - **Código:** app `apps/whatsapp` com recebimento (webhook), envio com as travas do laboratório e comandos de conferência.
-- **Painel da Meta:** ainda nada específico do WhatsApp. O caso de uso WhatsApp existe no app desde a Fase 1, e o token do usuário do sistema já tem `whatsapp_business_management` e `whatsapp_business_messaging`.
-- **Número:** a Fase 2 começa pelo número de teste da Meta. A conta do portfólio que usa o número comercial é do tipo "Aplicativo WhatsApp Business" e só migra depois da decisão sobre coexistência (CLAUDE.md, 5.6).
+- **Painel da Meta:** termos da Plataforma do WhatsApp Business aceitos e número de teste criado em 06/11/2026, com uma conta do WhatsApp Business de teste no portfólio. IDs em `WHATSAPP_PHONE_NUMBER_ID` e `WHATSAPP_BUSINESS_ACCOUNT_ID` (local e servidor). Um destinatário de teste cadastrado (celular do Danilo).
+- **Webhook:** objeto `whatsapp_business_account` assinado no app com o campo `messages` e o mesmo callback da Fase 1; o app está inscrito na conta de teste (`subscribed_apps`).
+- **Número comercial:** a conta do portfólio que usa o número comercial é do tipo "Aplicativo WhatsApp Business" e só migra depois da decisão sobre coexistência (CLAUDE.md, 5.6).
 
 ## Passo a passo no painel (número de teste)
 
 1. **Número de teste:** no app "B2G Integrations Lab", caso de uso WhatsApp, abrir a configuração da API e iniciar o uso da API. A Meta cria uma conta do WhatsApp Business de teste com um número de teste.
 2. **IDs:** copiar o "ID do número de telefone" para `WHATSAPP_PHONE_NUMBER_ID` e o "ID da conta do WhatsApp Business" para `WHATSAPP_BUSINESS_ACCOUNT_ID`, no `.env` local e no do servidor.
 3. **Destinatário de teste:** no campo "Para", cadastrar o celular do Danilo e confirmar com o código que chega no WhatsApp. O número de teste só envia para até 5 destinatários cadastrados, sem custo.
-4. **Acesso do usuário do sistema:** atribuir a conta de teste ao usuário do sistema "B2G Lab API" (Configurações do negócio > Contas do WhatsApp), com controle total. Rodar `meta_check`: se a WABA não aparecer como alcançada, gerar um token novo.
-5. **Webhook:** na configuração do caso de uso WhatsApp, cadastrar o mesmo callback da Fase 1 (`https://<domínio do servidor>/webhooks/meta/`) com o `META_WEBHOOK_VERIFY_TOKEN` e assinar o campo `messages`. Conferir com `whatsapp_check` que o app aparece entre os assinados da WABA; se não aparecer, assinar com `POST /<WABA_ID>/subscribed_apps` usando o token do usuário do sistema.
+4. **Acesso do usuário do sistema:** rodar `meta_check`. Em 06/11/2026 o token já alcançou a conta de teste com as duas permissões do WhatsApp, sem atribuição manual. Se não alcançar, atribuir a conta ao usuário do sistema "B2G Lab API" (Configurações do negócio > Contas do WhatsApp) e, se preciso, gerar token novo.
+5. **Webhook:** no painel, a tela de webhooks do WhatsApp fica dentro da "Etapa 2. Configuração da produção", junto com o cadastro do número real. Por isso foi feito pela API:
+   - `POST /<APP_ID>/subscriptions` com o token de app, `object=whatsapp_business_account`, o callback da Fase 1 (`https://<domínio do servidor>/webhooks/meta/`), o `META_WEBHOOK_VERIFY_TOKEN` e `fields=messages`. A Meta faz o handshake na hora.
+   - `POST /<WABA_ID>/subscribed_apps` com o token do usuário do sistema, para a conta entregar os eventos ao app. O `whatsapp_check` confirma.
+
+O token de acesso que o painel gera na Etapa 1 é temporário e não é usado pelo laboratório.
 6. **Primeira conversa:** publicar o código na EC2 (`python deploy.py`), mandar "oi" do celular para o número de teste e conferir no admin o contato, a conversa e a mensagem. A janela de 24h fica aberta.
 7. **Primeiro envio real:** no servidor, colocar o celular em `LAB_ALLOWED_RECIPIENTS`, desligar `LAB_DRY_RUN` só durante o teste e rodar `whatsapp_send_test --to <celular> --text "..."`. O status (enviada, entregue, lida) chega pelo webhook.
 
@@ -80,19 +85,19 @@ O token só alcança a WABA de teste depois que ela for atribuída ao usuário d
 ## Pontos a verificar
 
 - **Política de provedores de IA:** a Meta tem uma política específica para "AI Providers" (vigente desde 16/02/2026, atualizada em 12/05/2026), com cobrança de mensagens fora de template para usuários no Brasil. Antes do concierge com Claude (F17), confirmar se o uso da Brave2Grow se enquadra.
-- **Mensagens de sistema e BSUID com o número de teste:** a documentação não diz se o número de teste já recebe BSUID; conferir no primeiro webhook real.
 
 ## O que funcionou
 
-- 06/11/2026: recebimento e envio cobertos por testes com payloads da documentação atual (BSUID incluído) e a Graph API mockada. Ainda não validado contra a Meta real.
+- 06/11/2026: recebimento e envio cobertos por testes com payloads da documentação atual (BSUID incluído) e a Graph API mockada.
+- 06/11/2026: primeira conversa real. Mensagens de texto do celular cadastrado para o número de teste chegaram na EC2 assinadas e foram processadas: contato criado com telefone em E.164, identidade pelo BSUID (o número de teste recebe BSUID, com `user_id` e `wa_id` no bloco `contacts` e `from_user_id` na mensagem), conversa aberta no `phone_number_id` com a janela de 24h e um evento por mensagem.
 
 ## Limitações encontradas
 
-- Nenhuma ainda contra a Meta real.
+- A verificação de webhook manda o verify token na URL (como `hub.verify_token` e `hub_verify_token`), e os logs de acesso do Gunicorn e do Caddy gravavam a URL completa. Corrigido em 06/11/2026: o Gunicorn grava só o caminho e o Caddy troca o valor por `REDACTED`.
 
 ## Próximos passos
 
-1. Configurar o número de teste no painel (passos 1 a 5) e validar a primeira conversa na EC2.
+1. Primeiro envio real (passo 7), com resposta dentro da janela e status de entrega pelo webhook.
 2. Catálogo de templates (`apps/whatsapp/templates_catalog.py`) e sincronização de status de aprovação (campo `message_template_status_update`).
 3. Motor de fluxo conversacional: nós de mensagem, pergunta, condição, chamada de API e handoff humano. Os envios dos fluxos precisam sair depois do commit da transação do webhook.
 4. Resposta automática de confirmação para a palavra de saída.
