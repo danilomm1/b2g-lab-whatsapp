@@ -57,8 +57,37 @@ O passo a passo detalhado, tela por tela, está em [docs/treinamento/configurar-
 Observações:
 - No sistema novo de casos de uso, a tela "Gerar token" só oferece as permissões já adicionadas ao caso de uso. As que estão como "não" aparecem com o botão "Adicionar" em Painel > Personalizar caso de uso > Permissões e recursos. Adicionar e gerar um token novo na Fase 3.
 - O app está em modo de desenvolvimento: funciona com os ativos do próprio portfólio e com quem tem função no app. Para dados de terceiros, publicar o app e passar pela análise (App Review).
-- Existe também a família `instagram_business_*` (Instagram API com login do Instagram). A escolha entre ela e o login do Facebook fica para a Fase 3.
+- A família `instagram_business_*` (login do Instagram) não está disponível para este app: o Instagram usa o login unificado, com as permissões `instagram_*` e o token do usuário do sistema (ADR 0008).
 - Uma permissão sem uso por 90 dias precisa ser concedida de novo.
+
+## Fase 3: preparação (Instagram e Página)
+
+A Fase 3 é desenvolvida no branch `fase-3-instagram-facebook`, criado do `main` numa worktree própria (`../b2g-lab-fase-3`), em paralelo à Fase 2, que ainda não entrou no `main`. Detalhes de cada canal em [instagram.md](instagram.md) e [facebook.md](facebook.md).
+
+### Etapas comuns no painel
+
+1. **Permissões nos casos de uso:** as listas estão em instagram.md e facebook.md.
+2. **Token novo:** Configurações do negócio > Usuários do sistema > "B2G Lab API" > Gerar token, marcando as 6 permissões atuais mais as novas. Atualizar `META_SYSTEM_USER_TOKEN` no `.env` local e no do servidor, ao mesmo tempo, porque o WhatsApp da Fase 2 usa o mesmo token, e rodar `meta_check`. Revogar o token antigo só depois de conferir o novo.
+3. **Funções para os testes:** a conta pessoal do Facebook do Danilo como Testador do app (Funções do app > Funções) e o @ pessoal do Instagram como Testador do Instagram. Com acesso padrão, quem não tem função no app não gera evento nem recebe mensagem.
+4. **Publicação do app (decisão em aberto):** a documentação de webhooks do Instagram exige o app publicado (Live) para entregar notificações de usuários do app, mesmo sem App Review. Publicar pede, em Configurações do app > Básico, URL da política de privacidade, URL ou instruções de exclusão de dados, ícone e categoria. Com acesso padrão, o app publicado continua servindo só quem tem função nele. A Meta recomenda publicar no fim do desenvolvimento; a proposta é publicar quando o recebimento da Fase 3 estiver no servidor.
+
+### Ordem do trabalho
+
+1. Painel, token e comandos de conferência (`instagram_check` e `facebook_check`).
+2. Recebimento: handlers das rotas `instagram` e `page`. Não depende da Fase 2.
+3. Envio de DM e Messenger, comentários e resposta privada. Depende do `GraphClient.post` sem repetição da Fase 2: antes deste passo, trazer o `main` com a Fase 2 para o branch da Fase 3.
+4. Publicação, insights e telas.
+
+### Dependências e conflitos com a Fase 2
+
+- A Fase 3 vai usar do branch da Fase 2: `GraphClient.post` com `idempotent=False`, a fixture `meta_post` de `tests/conftest.py`, as telas de conversa e o motor de fluxo (ADR 0007).
+- Arquivos alterados pelas duas fases, com conflito simples esperado na junção: `config/settings/base.py` (`INSTALLED_APPS`), `config/urls.py`, `templates/base.html` (menu), `tests/conftest.py`, `tests/test_meta_webhook.py`, `.env.example` e a linha "Rota" deste arquivo.
+
+### Decisões em aberto
+
+- **Allowlist para Instagram e Messenger:** `LAB_ALLOWED_RECIPIENTS` hoje recebe telefones e emails. Proposta: aceitar também `instagram:<IGSID>` e `facebook:<PSID>`, copiados da tela de conversa depois da primeira mensagem do Danilo. A comparação atual já trata esse formato como texto, mas o código deve reconhecer o prefixo antes de tentar ler um telefone.
+- **Mídia para publicar:** o Instagram e as fotos da Página exigem URL pública. Opções: uma pasta de mídia servida pelo Caddy da EC2 ou um bucket S3.
+- **App Review:** pedir acesso avançado só se a consulta periódica de comentários não bastar para a jornada "comentário vira conversa".
 
 ## O que funcionou
 
@@ -90,4 +119,4 @@ Observações:
 
 - Fase 2: número de teste do WhatsApp, handler de `whatsapp_business_account` e assinatura do campo `messages`.
 - Troca de `META_GRAPH_API_VERSION` para v27.0: feita no fechamento da Fase 2.
-- Fase 3: adicionar as permissões de Página e Instagram aos casos de uso, gerar token novo, conectar a Página ao app (Configurações da API do Messenger > 2. Gere tokens de acesso) e assinar os campos de `page` e `instagram`.
+- Fase 3: seguir a seção "Fase 3: preparação" acima (permissões, token novo, funções de teste, publicação do app, webhooks de `page` e `instagram`).
