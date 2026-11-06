@@ -5,6 +5,7 @@ from apps.core.models import Contact, MessageStatus
 from apps.core.phone import InvalidPhoneNumber, normalize_phone
 from apps.whatsapp import payloads
 from apps.whatsapp.services import SendBlocked, send_message
+from apps.whatsapp.templates_catalog import TemplateError, get_template
 
 
 class Command(BaseCommand):
@@ -19,7 +20,13 @@ class Command(BaseCommand):
         group = parser.add_mutually_exclusive_group(required=True)
         group.add_argument("--text", help="Texto livre (dentro da janela de 24h).")
         group.add_argument("--template", help="Nome de um template aprovado, ex.: hello_world.")
-        parser.add_argument("--language", default="pt_BR", help="Idioma do template.")
+        parser.add_argument("--language", help="Idioma do template (padrão: o do catálogo).")
+        parser.add_argument(
+            "--var",
+            action="append",
+            default=[],
+            help="Variável do template, na ordem de {{1}}, {{2}}... (repita a opção).",
+        )
 
     def handle(self, *args, **options) -> None:
         try:
@@ -36,7 +43,11 @@ class Command(BaseCommand):
         if options["text"]:
             outbound = payloads.text(options["text"])
         else:
-            outbound = payloads.template(options["template"], language=options["language"])
+            try:
+                spec = get_template(options["template"], options["language"])
+                outbound = spec.build(*options["var"])
+            except TemplateError as exc:
+                raise CommandError(str(exc)) from exc
 
         mode = "simulado (LAB_DRY_RUN=True)" if settings.LAB_DRY_RUN else "real"
         self.stdout.write(f"Modo: {mode}")

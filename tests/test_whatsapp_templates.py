@@ -259,3 +259,33 @@ def test_approved_template_goes_out_of_window() -> None:
     assert message.status == MessageStatus.SIMULATED
     assert message.is_proactive
     assert message.body.startswith("Olá, Ana! Aqui é o assistente automático da Brave2Grow.")
+
+
+@pytest.mark.django_db
+def test_send_test_command_builds_template_from_catalog() -> None:
+    _contact_outside_window()
+    out = StringIO()
+
+    call_command(
+        "whatsapp_send_test",
+        "--to",
+        "+5511987654321",
+        "--template",
+        "b2g_confirmacao_reuniao",
+        "--var",
+        "Ana",
+        "--var",
+        "quinta, às 10h",
+        stdout=out,
+    )
+
+    assert "Simulada" in out.getvalue()
+    with pytest.raises(CommandError, match="espera 2"):
+        call_command(
+            "whatsapp_send_test",
+            "--to",
+            "+5511987654321",
+            "--template",
+            "b2g_confirmacao_reuniao",
+            stdout=StringIO(),
+        )
