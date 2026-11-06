@@ -88,6 +88,16 @@ O estado da integração está em [docs/integrations/meta.md](docs/integrations/
 
 Webhooks reais da Meta só chegam no servidor de validação (EC2), nunca na máquina local: não usamos túneis ([ADR 0005](docs/decisions/0005-webhooks-reais-somente-na-ec2.md)). Localmente, os testes simulam eventos assinados. Servidor e deploy (`python deploy.py`) em [docs/deploy/ec2.md](docs/deploy/ec2.md).
 
+## WhatsApp (Cloud API)
+
+Estado, passo a passo do número de teste no painel, travas de envio, templates, fluxos e custos em [docs/integrations/whatsapp.md](docs/integrations/whatsapp.md). Contatos são identificados pelo BSUID ([ADR 0006](docs/decisions/0006-identidade-whatsapp-por-bsuid.md)), e os fluxos conversacionais são definidos em código ([ADR 0007](docs/decisions/0007-motor-de-fluxo-do-whatsapp.md)). As conversas ficam em **Conversas**, no topo do painel.
+
+```powershell
+.\.venv\Scripts\python.exe manage.py whatsapp_check                               # número, app assinado na WABA e templates
+.\.venv\Scripts\python.exe manage.py whatsapp_templates list                        # catálogo comparado com a Meta
+.\.venv\Scripts\python.exe manage.py whatsapp_send_test --to +55... --text "Oi"   # simulado enquanto LAB_DRY_RUN=True
+```
+
 ## Estrutura
 
 ```
@@ -96,6 +106,8 @@ apps/        um app Django por canal ou responsabilidade
              core: contatos, consentimentos, conversas, mensagens, eventos, travas de segurança, painel
              credentials: tokens criptografados por plataforma
              webhooks: endpoint único, assinatura, deduplicação e fila
+             meta_business: Graph API, token do usuário do sistema e webhook da Meta
+             whatsapp: Cloud API, recebimento, envio com travas, templates e fluxos
 assets/      entrada do Tailwind (assets/css/tailwind.css)
 templates/   templates compartilhados
 static/      arquivos estáticos (htmx em static/vendor; o CSS gerado não é versionado)

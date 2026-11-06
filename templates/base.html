@@ -18,6 +18,7 @@
           <span class="rounded-full bg-amber-400/15 px-2.5 py-0.5 text-xs font-medium text-amber-300 ring-1 ring-amber-400/30">envios reais para a allowlist</span>
         {% endif %}
         <nav class="flex items-center gap-4">
+          <a href="{% url 'whatsapp:conversation_list' %}" class="text-slate-300 hover:text-white">Conversas</a>
           <a href="{% url 'admin:index' %}" class="text-slate-300 hover:text-white">Admin</a>
           {% if user.is_authenticated %}
             <form method="post" action="{% url 'admin:logout' %}">

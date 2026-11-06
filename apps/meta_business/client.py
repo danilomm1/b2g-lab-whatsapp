@@ -23,9 +23,10 @@ logger = logging.getLogger(__name__)
 
 GRAPH_BASE_URL = "https://graph.facebook.com"
 
-# Códigos das páginas "Error handling" e "Rate limiting" da Graph API
+# Códigos das páginas "Error handling" e "Rate limiting" da Graph API; 130429 é o limite
+# de vazão de mensagens da WhatsApp Cloud API
 TRANSIENT_CODES = frozenset({1, 2})
-RATE_LIMIT_CODES = frozenset({4, 17, 32, 341, 613, *range(80000, 80015)})
+RATE_LIMIT_CODES = frozenset({4, 17, 32, 341, 613, 130429, *range(80000, 80015)})
 AUTH_CODES = frozenset({10, 102, 190, *range(200, 300)})
 
 
@@ -44,6 +45,7 @@ class GraphAPIError(Exception):
         payload: dict[str, Any] | None = None,
         retry_after: float | None = None,
         network: bool = False,
+        request_sent: bool = True,
     ) -> None:
         super().__init__(message)
         self.status = status
@@ -54,6 +56,8 @@ class GraphAPIError(Exception):
         self.payload = payload or {}
         self.retry_after = retry_after
         self.network = network
+        # False só quando a conexão nem chegou a ser aberta: a Meta não recebeu nada
+        self.request_sent = request_sent
 
     @property
     def is_rate_limit(self) -> bool:
@@ -166,6 +170,12 @@ class GraphClient:
     def get(self, path: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         return self.request("GET", path, params=params)
 
+    def post(
+        self, path: str, json_body: dict[str, Any], *, idempotent: bool = False
+    ) -> dict[str, Any]:
+        """POST com corpo JSON. Por padrão, tratado como não idempotente (ex.: enviar mensagem)."""
+        return self.request("POST", path, json_body=json_body, idempotent=idempotent)
+
     def request(
         self,
         method: str,
@@ -173,8 +183,15 @@ class GraphClient:
         *,
         params: dict[str, Any] | None = None,
         data: dict[str, Any] | None = None,
+        json_body: dict[str, Any] | None = None,
+        idempotent: bool = True,
     ) -> dict[str, Any]:
-        """Faz a chamada; erros transitórios são repetidos, os demais viram GraphAPIError."""
+        """Faz a chamada; erros transitórios são repetidos, os demais viram GraphAPIError.
+
+        Com idempotent=False (envios), só repete quando a Meta com certeza não executou a
+        chamada: limite de volume ou falha antes de abrir a conexão. Repetir depois de um
+        timeout de leitura ou de um erro 5xx poderia mandar a mesma mensagem duas vezes.
+        """
         if not self.access_token:
             raise ImproperlyConfigured("Token da Graph API ausente (META_SYSTEM_USER_TOKEN).")
         params = dict(params or {})
@@ -187,10 +204,19 @@ class GraphClient:
         while True:
             try:
                 response = self._http.request(
-                    method, path.lstrip("/"), params=params, data=data, headers=headers
+                    method,
+                    path.lstrip("/"),
+                    params=params,
+                    data=data,
+                    json=json_body,
+                    headers=headers,
                 )
             except httpx.TransportError as exc:
-                error = GraphAPIError(f"Falha de rede: {exc}", network=True)
+                error = GraphAPIError(
+                    f"Falha de rede: {exc}",
+                    network=True,
+                    request_sent=not isinstance(exc, httpx.ConnectError | httpx.ConnectTimeout),
+                )
             else:
                 self._store_usage(response)
                 if response.is_success:
@@ -209,19 +235,23 @@ class GraphClient:
                 error.fbtrace_id,
                 json.dumps(error.payload, ensure_ascii=False)[:4000],
             )
-            wait = self._wait_before_retry(error, attempt)
+            wait = self._wait_before_retry(error, attempt, idempotent=idempotent)
             if wait is None:
                 raise error
             self.sleep(wait)
             attempt += 1
 
-    def _wait_before_retry(self, error: GraphAPIError, attempt: int) -> float | None:
+    def _wait_before_retry(
+        self, error: GraphAPIError, attempt: int, *, idempotent: bool = True
+    ) -> float | None:
         """Espera da próxima tentativa, ou None para desistir.
 
         Se a Meta pede para esperar mais que max_wait, desiste na hora: a tarefa do Huey
         que chamou decide quando tentar de novo, usando error.retry_after.
         """
         if not error.is_transient or attempt >= self.max_retries:
+            return None
+        if not idempotent and not (error.is_rate_limit or not error.request_sent):
             return None
         wait = self.backoff_base * (2**attempt)
         if error.retry_after:

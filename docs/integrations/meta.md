@@ -21,7 +21,7 @@ O passo a passo detalhado, tela por tela, está em [docs/treinamento/configurar-
 - **Webhook** (`apps/meta_business/webhook.py`): provedor `meta` na esteira da Fase 0 (ADR 0003).
   - Assinatura `X-Hub-Signature-256`: HMAC-SHA256 do corpo bruto com o App Secret, prefixo `sha256=`.
   - Handshake: GET com `hub.mode=subscribe`, `hub.verify_token` e `hub.challenge`; a resposta é o challenge em texto puro.
-  - Rota: campo `object`. Handlers de canal chegam na Fase 2 (`whatsapp_business_account`) e na Fase 3 (`instagram`, `page`). Até lá as entregas ficam como "ignoradas", com o payload guardado.
+  - Rota: campo `object`. O handler de `whatsapp_business_account` existe desde a Fase 2 ([whatsapp.md](whatsapp.md)); os de `instagram` e `page` chegam na Fase 3. Até lá essas entregas ficam como "ignoradas", com o payload guardado.
   - A Meta manda lotes de até 1000 atualizações e reenvia por até 36 horas sem confirmação. A deduplicação usa o hash do corpo, e os IDs externos únicos de `Message` e `Event` cobrem o resto.
 - **Graph API** (`apps/meta_business/client.py`):
   - Token no cabeçalho `Authorization`, nunca na URL; o log do `httpx` fica em WARNING para não gravar URLs.
