@@ -233,6 +233,22 @@ def _touch(conversation: Conversation, message: Message) -> Message:
     return message
 
 
+def mark_conversation_read(conversation: Conversation) -> bool:
+    """Marca como lida a última mensagem recebida na conversa (tiques azuis para o contato).
+
+    Usada quando alguém atende pela tela: no handoff, o robô não responde e a mensagem
+    ficaria só como entregue.
+    """
+    last = (
+        conversation.messages.filter(direction=MessageDirection.INBOUND)
+        .exclude(external_id="")
+        .exclude(external_id__startswith=SIMULATED_WAMID_PREFIX)
+        .order_by("-created_at")
+        .first()
+    )
+    return mark_as_read(last) if last else False
+
+
 def mark_as_read(
     message: Message,
     *,
@@ -247,6 +263,8 @@ def mark_as_read(
     """
     if message.direction != MessageDirection.INBOUND or not message.external_id:
         return False
+    if message.external_id.startswith(SIMULATED_WAMID_PREFIX):
+        return False  # mensagem simulada não existe na Meta
     contact = message.conversation.contact
     try:
         target = recipient_fields(contact)

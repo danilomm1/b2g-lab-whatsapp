@@ -477,3 +477,60 @@ def test_reaction_is_ignored_by_the_engine(meta_post: Any) -> None:
     react()  # com o menu aberto: não conta como tentativa
     assert _run().attempts == 0
     assert len(_replies()) == replies_before
+
+
+@pytest.mark.django_db
+@respx.mock
+def test_silent_bot_marks_as_read_but_handoff_does_not(meta_post: Any, settings: Any) -> None:
+    settings.LAB_DRY_RUN = False
+    settings.LAB_ALLOWED_RECIPIENTS = ["+5511987654321"]
+    ids = itertools.count(1)
+
+    def graph(request: httpx.Request) -> httpx.Response:
+        if json.loads(request.content).get("status") == "read":
+            return httpx.Response(200, json={"success": True})
+        return httpx.Response(200, json={"messages": [{"id": f"wamid.out.{next(ids)}"}]})
+
+    route = respx.post("https://graph.facebook.com/v27.0/444/messages").mock(side_effect=graph)
+
+    def say(body: str) -> str:
+        message = _base() | {"type": "text", "text": {"body": body}}
+        meta_post(_envelope(message))
+        return message["id"]
+
+    def read_ids() -> list[str]:
+        bodies = [json.loads(call.request.content) for call in route.calls]
+        return [b["message_id"] for b in bodies if b.get("status") == "read"]
+
+    say("oi")
+    say("Conhecer serviços")  # opção digitada
+    meta_post(
+        _envelope(
+            _base()
+            | {
+                "type": "interactive",
+                "interactive": {
+                    "type": "button_reply",
+                    "button_reply": {"id": "novidades:nao", "title": "Agora não"},
+                },
+            }
+        )
+    )
+    thanks = say("obrigado")  # concluído há pouco: robô quieto, mas marca como lida
+    assert thanks in read_ids()
+
+    say("MENU")
+    meta_post(
+        _envelope(
+            _base()
+            | {
+                "type": "interactive",
+                "interactive": {
+                    "type": "button_reply",
+                    "button_reply": {"id": "menu:danilo", "title": "Falar com o Danilo"},
+                },
+            }
+        )
+    )
+    waiting = say("alguém aí?")  # handoff: fica só como entregue até alguém atender
+    assert waiting not in read_ids()

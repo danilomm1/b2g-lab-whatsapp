@@ -31,7 +31,7 @@ from . import payloads
 from .flows import FLOWS, release_handoff
 from .flows.engine import open_run, start_by_agent
 from .payloads import InvalidPayload, ListRow, ListSection, OutboundPayload
-from .services import SendBlocked, send_media, send_message
+from .services import SendBlocked, mark_conversation_read, send_media, send_message
 
 THREAD_LIMIT = 100
 
@@ -166,6 +166,9 @@ def _attempt(send: Callable[[], Message]) -> tuple[str, str]:
 
 
 def _respond(request: HttpRequest, conversation: Conversation, feedback: str, tone: str):
+    if tone == "ok":
+        # Quem atende agiu pela tela: o contato passa a ver as mensagens como lidas
+        mark_conversation_read(conversation)
     if request.htmx:
         context = _thread_context(conversation, feedback=feedback, tone=tone)
         return render(request, "whatsapp/partials/thread.html", context)

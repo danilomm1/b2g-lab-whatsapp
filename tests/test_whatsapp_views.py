@@ -141,12 +141,14 @@ def test_reply_without_htmx_redirects_back(admin_client: Client) -> None:
 def test_real_reply_and_test_buttons_go_to_the_api(admin_client: Client, settings: Any) -> None:
     settings.LAB_DRY_RUN = False
     settings.LAB_ALLOWED_RECIPIENTS = [PHONE]
-    route = respx.post("https://graph.facebook.com/v27.0/444/messages").mock(
-        side_effect=[
-            httpx.Response(200, json={"messages": [{"id": "wamid.TXT"}]}),
-            httpx.Response(200, json={"messages": [{"id": "wamid.BTN"}]}),
-        ]
-    )
+    sent_ids = iter(["wamid.TXT", "wamid.BTN"])
+
+    def graph(request: httpx.Request) -> httpx.Response:
+        if json.loads(request.content).get("status") == "read":
+            return httpx.Response(200, json={"success": True})
+        return httpx.Response(200, json={"messages": [{"id": next(sent_ids)}]})
+
+    route = respx.post("https://graph.facebook.com/v27.0/444/messages").mock(side_effect=graph)
     conversation = _conversation()
 
     admin_client.post(
@@ -157,13 +159,17 @@ def test_real_reply_and_test_buttons_go_to_the_api(admin_client: Client, setting
     )
 
     assert "Enviada para a Meta" in response.content.decode()
-    buttons_request = json.loads(route.calls[1].request.content)
-    assert buttons_request["type"] == "interactive"
-    assert [b["reply"]["id"] for b in buttons_request["interactive"]["action"]["buttons"]] == [
+    bodies = [json.loads(call.request.content) for call in route.calls]
+    sends = [b for b in bodies if "type" in b]
+    reads = [b for b in bodies if b.get("status") == "read"]
+    assert [b["type"] for b in sends] == ["text", "interactive"]
+    assert [b["reply"]["id"] for b in sends[1]["interactive"]["action"]["buttons"]] == [
         "teste_sim",
         "teste_nao",
         "teste_talvez",
     ]
+    # Quem atende pela tela marca a última mensagem do contato como lida
+    assert reads and all(b["message_id"] == "wamid.IN" for b in reads)
     assert set(
         Message.objects.filter(direction=MessageDirection.OUTBOUND).values_list(
             "external_id", flat=True

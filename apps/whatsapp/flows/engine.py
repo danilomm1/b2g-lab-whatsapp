@@ -577,9 +577,21 @@ def handle_inbound(message: Message) -> list[OutboundPayload]:
 
     if outbox:
         schedule_outbox(conversation, outbox, reply_to=message)
+    elif not Conversation.objects.filter(
+        pk=conversation.pk, status=ConversationStatus.HANDOFF
+    ).exists():
+        # Robô quieto de propósito: marca como lida mesmo assim. No handoff, os tiques
+        # azuis só aparecem quando alguém atende pela tela.
+        schedule_mark_read(message)
     for notice_conversation, notice in notices:
         schedule_outbox(notice_conversation, [notice], reply_to=None)
     return outbox
+
+
+def schedule_mark_read(message: Message) -> None:
+    from ..tasks import mark_read
+
+    transaction.on_commit(lambda: mark_read(message.pk))
 
 
 def start_by_agent(conversation: Conversation, key: str) -> list[OutboundPayload]:
