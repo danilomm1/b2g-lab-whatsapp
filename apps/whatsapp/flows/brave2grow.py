@@ -4,6 +4,9 @@ boas_vindas: primeiro contato com aviso de privacidade (CLAUDE.md, seção 13), 
 caminhos: conhecer serviços (com opt-in de novidades), pedir agendamento (email e
 período) e falar com o Danilo (handoff). O agendamento de verdade, com Google Calendar,
 é o F01 da Fase 10; aqui o pedido vira evento e etiqueta para o Danilo agir.
+
+cadastro (palavra CADASTRO): o mesmo cadastro pelo WhatsApp Flow b2g_cadastro, um
+formulário nativo com nome, email, interesse e opt-in explícito de novidades.
 """
 
 from __future__ import annotations
@@ -23,8 +26,10 @@ from apps.core.models import (
 from apps.core.services import grant_consent, record_event
 
 from .. import payloads
+from ..forms_catalog import INTEREST_OPTIONS, NEWS_OPT_IN_LABEL
 from ..payloads import OutboundPayload
 from .engine import (
+    KEYWORD_FLOWS,
     QUICK_REPLY_HANDLERS,
     Ask,
     Branch,
@@ -32,6 +37,7 @@ from .engine import (
     End,
     Flow,
     FlowContext,
+    Form,
     Handoff,
     Option,
     Say,
@@ -261,3 +267,95 @@ QUICK_REPLY_HANDLERS.update(
         "reuniao_cancelar": _meeting_reply,
     }
 )
+
+
+def _fill_contact(contact: Contact, *, name: str, email: str) -> None:
+    """Completa nome e email vazios do contato, sem tomar o email de outro contato."""
+    changed = False
+    if name and not contact.name:
+        contact.name = name
+        changed = True
+    if (
+        email
+        and not contact.email
+        and not Contact.objects.filter(email=email).exclude(pk=contact.pk).exists()
+    ):
+        contact.email = email
+        changed = True
+    if changed:
+        contact.save()
+
+
+def save_form_registration(ctx: FlowContext) -> str:
+    """Grava o cadastro do formulário: dados do contato, lead e opt-in, se marcado."""
+    answers = ctx.answers.get("cadastro") or {}
+    name = str(answers.get("nome", "")).strip()[:200]
+    email = parse_email(str(answers.get("email", ""))) or ""
+    interest = str(answers.get("interesse", ""))
+    _fill_contact(ctx.contact, name=name, email=email)
+    tag, _ = Tag.objects.get_or_create(name=LEAD_TAG)
+    ctx.contact.tags.add(tag)
+    titles = {option["id"]: option["title"] for option in INTEREST_OPTIONS}
+    record_event(
+        "lead.form_submitted",
+        contact=ctx.contact,
+        channel=Channel.WHATSAPP,
+        summary=f"Cadastro pelo formulário: {titles.get(interest, interest or 'sem interesse')}",
+        data={"answers": answers, "run_id": ctx.run.pk},
+    )
+    if answers.get("novidades") in (True, "true", "True"):
+        grant_consent(
+            ctx.contact,
+            Channel.WHATSAPP,
+            ConsentPurpose.MARKETING,
+            source="whatsapp_form",
+            consent_text=NEWS_OPT_IN_LABEL,
+            evidence={
+                "flow": ctx.flow.key,
+                "form": "b2g_cadastro",
+                "run_id": ctx.run.pk,
+                "message_id": ctx.message.external_id if ctx.message else "",
+            },
+        )
+    return interest
+
+
+def registration_done(ctx: FlowContext) -> str:
+    name = str((ctx.answers.get("cadastro") or {}).get("nome", "")).split(" ")[0]
+    greeting = f"Obrigado, {name}!" if name else "Obrigado!"
+    return f"{greeting} Recebemos seu cadastro. Se precisar de algo, é só enviar MENU."
+
+
+CADASTRO = register(
+    Flow(
+        "cadastro",
+        "Cadastro pelo formulário",
+        start="formulario",
+        nodes=[
+            Form(
+                "formulario",
+                "b2g_cadastro",
+                "Para te atender melhor, preencha seus dados no formulário. Leva menos de "
+                "um minuto.",
+                cta="Preencher",
+                save_as="cadastro",
+                next="salvar",
+                on_fail="handoff",
+                unavailable="sem_formulario",
+            ),
+            Call("salvar", save_form_registration, next="fim", on_error="handoff"),
+            End("fim", registration_done),
+            End(
+                "sem_formulario",
+                "O formulário está indisponível agora. Envie MENU para ver as outras opções.",
+            ),
+            Handoff(
+                "handoff",
+                "Certo! Vou avisar o Danilo, e ele continua a conversa por aqui assim que puder. "
+                "Para voltar ao menu automático, envie MENU.",
+                reason="Cadastro pelo formulário não concluído",
+            ),
+        ],
+    )
+)
+KEYWORD_FLOWS["CADASTRO"] = CADASTRO.key

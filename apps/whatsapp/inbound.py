@@ -6,11 +6,13 @@ Tudo é idempotente pelo wamid: reprocessar a mesma entrega não duplica nada.
 
 from __future__ import annotations
 
+import json
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
+from django.db import transaction
 from django.utils import timezone
 
 from apps.core.models import (
@@ -41,7 +43,7 @@ STATUS_MAP = {
 
 # Tipos cujo texto é escrito ou escolhido pelo contato: valem para a palavra de saída
 _OPT_OUT_KINDS = frozenset({"text", "button", "interactive"})
-_MEDIA_KINDS = frozenset({"image", "video", "audio", "document", "sticker"})
+MEDIA_KINDS = frozenset({"image", "video", "audio", "document", "sticker"})
 
 
 def parse_timestamp(value: Any) -> datetime:
@@ -57,6 +59,12 @@ class InboundContent:
     kind: str
     body: str
     reply_id: str = ""  # ID do botão ou da linha da lista escolhida
+    form_response: dict[str, Any] = field(default_factory=dict)  # respostas de um WhatsApp Flow
+
+
+def _form_summary(response: dict[str, Any]) -> str:
+    fields = [f"{k}: {v}" for k, v in response.items() if k != "flow_token" and v not in ("", None)]
+    return "[formulário] " + "; ".join(fields) if fields else "[formulário enviado]"
 
 
 def extract_content(message: dict[str, Any]) -> InboundContent:
@@ -69,12 +77,19 @@ def extract_content(message: dict[str, Any]) -> InboundContent:
     if kind == "interactive":
         reply = data.get(str(data.get("type", "")), {})
         reply = reply if isinstance(reply, dict) else {}
+        if data.get("type") == "nfm_reply":  # resposta de WhatsApp Flow (formulário nativo)
+            try:
+                response = json.loads(reply.get("response_json") or "{}")
+            except ValueError:
+                response = {}
+            response = response if isinstance(response, dict) else {}
+            return InboundContent(kind, _form_summary(response), form_response=response)
         return InboundContent(
             kind, str(reply.get("title") or reply.get("body") or ""), str(reply.get("id", ""))
         )
     if kind == "button":  # botão de resposta rápida de template
         return InboundContent(kind, str(data.get("text", "")), str(data.get("payload", "")))
-    if kind in _MEDIA_KINDS:
+    if kind in MEDIA_KINDS:
         return InboundContent(kind, str(data.get("caption", "")))
     if kind == "location":
         place = ", ".join(str(data[k]) for k in ("name", "address") if data.get(k))
@@ -180,9 +195,12 @@ def process_inbound_message(
             "contact": contact_data,
             "metadata": metadata,
             "reply_id": content.reply_id,
+            "form_response": content.form_response,
         },
         created_at=sent_at,
     )
+    if content.kind in MEDIA_KINDS:
+        _schedule_media_download(stored.pk)
     conversation.last_inbound_at = max(filter(None, [conversation.last_inbound_at, sent_at]))
     conversation.last_message_at = max(filter(None, [conversation.last_message_at, sent_at]))
     conversation.save(update_fields=["last_inbound_at", "last_message_at", "updated_at"])
@@ -245,3 +263,10 @@ def process_status(status: dict[str, Any]) -> Message | None:
             )
     message.save(update_fields=fields)
     return message
+
+
+def _schedule_media_download(message_id: int) -> None:
+    """A URL da mídia vale só 5 minutos: o download sai logo depois do commit."""
+    from .tasks import download_media
+
+    transaction.on_commit(lambda: download_media(message_id))

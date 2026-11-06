@@ -75,3 +75,46 @@ class WhatsAppClient:
     def create_template(self, waba_id: str, payload: dict[str, Any]) -> dict[str, Any]:
         """POST /<WABA_ID>/message_templates: envia o template para a análise da Meta."""
         return self.graph.post(f"{waba_id}/message_templates", payload)
+
+    def upload_media(self, content: bytes, mime_type: str, filename: str) -> str:
+        """POST /<PHONE_NUMBER_ID>/media (multipart). A mídia fica 30 dias na Meta."""
+        response = self.graph.request(
+            "POST",
+            f"{self.phone_number_id}/media",
+            data={"messaging_product": "whatsapp", "type": mime_type},
+            files={"file": (filename, content, mime_type)},
+            idempotent=False,
+        )
+        return str(response["id"])
+
+    def media_info(self, media_id: str) -> dict[str, Any]:
+        """GET /<MEDIA_ID>: URL (válida por 5 minutos), tipo, tamanho e sha256."""
+        return self.graph.get(media_id, {"phone_number_id": self.phone_number_id})
+
+    def download_media(self, media_id: str) -> tuple[bytes, dict[str, Any]]:
+        """Baixa uma mídia recebida: consulta a URL e baixa com o token."""
+        info = self.media_info(media_id)
+        content, _ = self.graph.download(info["url"])
+        return content, info
+
+    def create_form(
+        self, waba_id: str, name: str, categories: list[str], flow_json: str, *, publish: bool
+    ) -> dict[str, Any]:
+        """POST /<WABA_ID>/flows: cria um WhatsApp Flow (formulário nativo), publicado ou não."""
+        return self.graph.request(
+            "POST",
+            f"{waba_id}/flows",
+            json_body={
+                "name": name,
+                "categories": categories,
+                "flow_json": flow_json,
+                "publish": publish,
+            },
+            idempotent=False,
+        )
+
+    def forms(self, waba_id: str) -> list[dict[str, Any]]:
+        response = self.graph.get(
+            f"{waba_id}/flows", {"fields": "id,name,status,categories,validation_errors"}
+        )
+        return response.get("data", [])

@@ -40,6 +40,15 @@
   {% for message in thread %}
   <li class="flex {% if message.is_outbound %}justify-end{% endif %}">
     <div class="max-w-[85%] rounded-lg px-3 py-2 text-sm {% if message.is_outbound %}bg-emerald-50 ring-1 ring-emerald-600/15{% else %}bg-slate-100{% endif %}">
+      {% if message.media_url %}
+        {% if message.media_is_image %}
+          <a href="{{ message.media_url }}" target="_blank" rel="noopener">
+            <img src="{{ message.media_url }}" alt="Imagem recebida" class="mb-1 max-h-48 rounded-md">
+          </a>
+        {% else %}
+          <a href="{{ message.media_url }}" target="_blank" rel="noopener" class="mb-1 inline-block text-sm font-medium text-emerald-700 underline">Abrir {{ message.kind }}</a>
+        {% endif %}
+      {% endif %}
       <p class="whitespace-pre-line break-words">{{ message.body|default:message.kind }}</p>
       <p class="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
         <time datetime="{{ message.created_at|date:'c' }}">{{ message.created_at|date:"d/m H:i:s" }}</time>

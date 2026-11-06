@@ -6,20 +6,32 @@ Todo envio passa por services.send_message, com as mesmas travas dos fluxos.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from pathlib import Path
+
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.db.models import Count, Max
-from django.http import HttpRequest, HttpResponse
+from django.http import FileResponse, Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from apps.core.models import Channel, Conversation, MessageDirection, MessageStatus
+from apps.core.models import (
+    Channel,
+    Conversation,
+    Message,
+    MessageDirection,
+    MessageStatus,
+)
+from apps.meta_business.client import GraphAPIError
 
 from . import payloads
 from .flows import FLOWS, release_handoff
-from .flows.engine import open_run
+from .flows.engine import open_run, start_by_agent
 from .payloads import InvalidPayload, OutboundPayload
-from .services import SendBlocked, send_message
+from .services import SendBlocked, send_media, send_message
 
 THREAD_LIMIT = 100
 
@@ -38,6 +50,7 @@ TEST_BUTTONS = payloads.buttons(
     [("teste_sim", "Sim"), ("teste_nao", "Não"), ("teste_talvez", "Talvez")],
     footer="B2G Integrations Lab",
 )
+TEST_IMAGE = Path(__file__).resolve().parent / "static" / "whatsapp" / "imagem-teste.png"
 
 
 def _error_text(error: object) -> str:
@@ -65,6 +78,13 @@ def _thread_context(conversation: Conversation, *, feedback: str = "", tone: str
         payload = message.raw_payload if isinstance(message.raw_payload, dict) else {}
         message.reply_id = payload.get("reply_id", "")
         message.error_text = _error_text(message.error)
+        media = payload.get("media") or {}
+        message.media_url = (
+            reverse("whatsapp:media", args=[conversation.pk, message.pk])
+            if media.get("path")
+            else ""
+        )
+        message.media_is_image = str(media.get("mime_type", "")).startswith("image/")
     run = open_run(conversation)
     flow = FLOWS.get(run.flow_key) if run else None
     return {
@@ -107,10 +127,18 @@ def conversation_thread(request: HttpRequest, pk: int) -> HttpResponse:
 
 def _send(request: HttpRequest, conversation: Conversation, outbound: OutboundPayload):
     """Envia e devolve (texto, tom) para o aviso abaixo da conversa."""
+    return _attempt(lambda: send_message(conversation.contact, outbound, conversation=conversation))
+
+
+def _attempt(send: Callable[[], Message]) -> tuple[str, str]:
     try:
-        message = send_message(conversation.contact, outbound, conversation=conversation)
+        message = send()
     except SendBlocked as exc:
         return f"Envio bloqueado: {exc}", "warn"
+    except InvalidPayload as exc:
+        return str(exc), "warn"
+    except GraphAPIError as exc:
+        return f"A Graph API recusou o arquivo: {exc}", "danger"
     if message.status == MessageStatus.FAILED:
         return f"A Graph API recusou: {message.error.get('message', '')}", "danger"
     if message.status == MessageStatus.SIMULATED:
@@ -130,9 +158,24 @@ def _respond(request: HttpRequest, conversation: Conversation, feedback: str, to
 @staff_member_required
 @require_POST
 def reply(request: HttpRequest, pk: int) -> HttpResponse:
-    """Responde com texto livre (só dentro da janela de 24h)."""
+    """Responde com texto livre ou com um arquivo (só dentro da janela de 24h)."""
     conversation = get_object_or_404(_whatsapp_conversations(), pk=pk)
     body = request.POST.get("body", "").strip()
+    attachment = request.FILES.get("attachment")
+    if attachment:
+        content = attachment.read()
+        mime_type = attachment.content_type or "application/octet-stream"
+        feedback = _attempt(
+            lambda: send_media(
+                conversation.contact,
+                content,
+                mime_type,
+                attachment.name,
+                caption=body,
+                conversation=conversation,
+            )
+        )
+        return _respond(request, conversation, *feedback)
     try:
         outbound = payloads.text(body)
     except InvalidPayload as exc:
@@ -161,3 +204,51 @@ def give_back_to_assistant(request: HttpRequest, pk: int) -> HttpResponse:
         else "Não havia atendimento humano em andamento."
     )
     return _respond(request, conversation, feedback, "ok" if released else "neutral")
+
+
+@staff_member_required
+@require_POST
+def send_test_image(request: HttpRequest, pk: int) -> HttpResponse:
+    """Manda a imagem de teste do laboratório (sobe para a Meta e envia pelo ID)."""
+    conversation = get_object_or_404(_whatsapp_conversations(), pk=pk)
+    content = TEST_IMAGE.read_bytes()
+    feedback = _attempt(
+        lambda: send_media(
+            conversation.contact,
+            content,
+            "image/png",
+            TEST_IMAGE.name,
+            caption="Imagem de teste do B2G Integrations Lab",
+            conversation=conversation,
+        )
+    )
+    return _respond(request, conversation, *feedback)
+
+
+@staff_member_required
+@require_POST
+def start_registration(request: HttpRequest, pk: int) -> HttpResponse:
+    """Inicia o fluxo de cadastro pelo formulário nativo (WhatsApp Flow) nesta conversa."""
+    conversation = get_object_or_404(_whatsapp_conversations(), pk=pk)
+    if not conversation.is_service_window_open():
+        feedback = "Fora da janela de 24h: não dá para abrir o formulário."
+        return _respond(request, conversation, feedback, "warn")
+    outbox = start_by_agent(conversation, "cadastro")
+    feedback = (
+        "Cadastro iniciado: o formulário foi para a fila de envio."
+        if outbox
+        else "O fluxo de cadastro não gerou mensagem."
+    )
+    return _respond(request, conversation, feedback, "ok" if outbox else "warn")
+
+
+@staff_member_required
+def media(request: HttpRequest, pk: int, message_pk: int) -> FileResponse:
+    """Arquivo de uma mídia recebida, servido só a staff (nunca como estático público)."""
+    message = get_object_or_404(Message, pk=message_pk, conversation_id=pk)
+    stored = (message.raw_payload or {}).get("media") or {}
+    base = Path(settings.WHATSAPP_MEDIA_DIR).resolve()
+    path = (base / str(stored.get("path", ""))).resolve()
+    if not stored.get("path") or base not in path.parents or not path.is_file():
+        raise Http404("Mídia não encontrada")
+    return FileResponse(path.open("rb"), content_type=stored.get("mime_type") or None)

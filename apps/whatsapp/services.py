@@ -11,7 +11,9 @@ Bloqueios levantam SendBlocked e nada é gravado; simulações e falhas da API v
 from __future__ import annotations
 
 import logging
+import mimetypes
 import time
+from pathlib import Path
 from typing import Any
 
 from django.conf import settings
@@ -31,12 +33,16 @@ from apps.core.safety import check_outbound, check_proactive_contact
 from apps.core.services import record_event
 from apps.meta_business.client import GraphAPIError
 
+from . import payloads
 from .client import WhatsAppClient, default_phone_number_id
-from .inbound import open_conversation
+from .inbound import MEDIA_KINDS, open_conversation
 from .models import MessageTemplate
 from .payloads import OutboundPayload
 
 logger = logging.getLogger(__name__)
+
+
+SIMULATED_WAMID_PREFIX = "wamid.simulado."
 
 
 class SendBlocked(Exception):
@@ -177,7 +183,8 @@ def deliver_outbox(
     conversation = Conversation.objects.select_related("contact").get(pk=conversation_id)
     if reply_to_id:
         reply_to = Message.objects.filter(pk=reply_to_id).first()
-        if reply_to:
+        # Mensagem simulada (whatsapp_simulate_reply) não existe na Meta para ser marcada
+        if reply_to and not reply_to.external_id.startswith(SIMULATED_WAMID_PREFIX):
             mark_as_read(reply_to, typing=True, client=client)
     sent: list[Message] = []
     for index, item in enumerate(items):
@@ -242,3 +249,120 @@ def mark_as_read(
         if own_client:
             client.close()
     return True
+
+
+def store_inbound_media(message_id: int, *, client: WhatsAppClient | None = None) -> str:
+    """Baixa a mídia de uma mensagem recebida para WHATSAPP_MEDIA_DIR. Retorna o caminho.
+
+    Idempotente: se o arquivo já foi baixado, não chama a Meta de novo.
+    """
+    message = Message.objects.select_related("conversation").get(pk=message_id)
+    payload = message.raw_payload if isinstance(message.raw_payload, dict) else {}
+    stored = payload.get("media") or {}
+    if stored.get("path") and (Path(settings.WHATSAPP_MEDIA_DIR) / stored["path"]).exists():
+        return stored["path"]
+    raw_message = payload.get("message") or {}
+    media_id = str((raw_message.get(message.kind) or {}).get("id", ""))
+    if message.kind not in MEDIA_KINDS or not media_id:
+        return ""
+    own_client = client is None
+    client = client or WhatsAppClient(message.conversation.account_id or None)
+    try:
+        content, info = client.download_media(media_id)
+    finally:
+        if own_client:
+            client.close()
+    mime_type = str(info.get("mime_type", "")).split(";")[0]
+    extension = mimetypes.guess_extension(mime_type) or ".bin"
+    relative = f"{message.created_at:%Y/%m}/{message.pk}-{media_id[-8:]}{extension}"
+    target = Path(settings.WHATSAPP_MEDIA_DIR) / relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(content)
+    payload["media"] = {
+        "id": media_id,
+        "mime_type": mime_type,
+        "sha256": info.get("sha256", ""),
+        "file_size": len(content),
+        "path": relative,
+    }
+    message.raw_payload = payload
+    message.save(update_fields=["raw_payload"])
+    return relative
+
+
+def send_media(
+    contact: Contact,
+    content: bytes,
+    mime_type: str,
+    filename: str,
+    *,
+    caption: str = "",
+    conversation: Conversation | None = None,
+    dry_run: bool | None = None,
+    client: WhatsAppClient | None = None,
+) -> Message:
+    """Envia um arquivo como imagem, áudio, vídeo ou documento, conforme o tipo.
+
+    Os limites de tipo e tamanho são conferidos antes. No dry-run (ou fora da allowlist),
+    nada sobe para a Meta: a mensagem fica simulada ou o envio é barrado por send_message.
+    """
+    kind = payloads.media_kind_for(mime_type)
+    payloads.check_media(kind, mime_type, len(content))
+    caption = "" if kind == "audio" else caption
+    decision = check_outbound(next(iter(recipient_fields(contact).values())), dry_run=dry_run)
+    if not decision.send_for_real:
+        outbound = payloads.media(kind, media_id="simulado", caption=caption, filename=filename)
+        return send_message(
+            contact, outbound, conversation=conversation, dry_run=dry_run, client=client
+        )
+    own_client = client is None
+    phone_number_id = conversation.account_id if conversation else None
+    client = client or WhatsAppClient(phone_number_id or None)
+    try:
+        media_id = client.upload_media(content, mime_type, filename)
+        outbound = payloads.media(kind, media_id=media_id, caption=caption, filename=filename)
+        return send_message(
+            contact, outbound, conversation=conversation, dry_run=dry_run, client=client
+        )
+    finally:
+        if own_client:
+            client.close()
+
+
+def owner_notifications(
+    contact: Contact, summary: str, answers: dict[str, Any]
+) -> list[tuple[Conversation, OutboundPayload]]:
+    """Avisos de handoff para os números de OWNER_WHATSAPP_NUMBERS com janela aberta.
+
+    Sem janela aberta, o aviso só pode ir por template aprovado; até lá, fica o evento no
+    painel. O Console CEO (Fase 9) amplia esses avisos.
+    """
+    who = contact.name or contact.phone or f"contato #{contact.pk}"
+    lines = [f"Aviso do laboratório: {who} pediu atendimento humano no WhatsApp."]
+    if contact.phone:
+        lines.append(f"Telefone: {contact.phone}")
+    lines.append(f"Motivo: {summary}")
+    if answers:
+        lines.append("Respostas: " + "; ".join(f"{k}: {v}" for k, v in answers.items()))
+    lines.append("Responda pela tela Conversas do laboratório.")
+    text = payloads.text("\n".join(lines))
+    notices = []
+    for number in settings.OWNER_WHATSAPP_NUMBERS:
+        owner = Contact.objects.filter(phone=number.strip()).first()
+        conversation = (
+            owner.conversations.filter(channel=Channel.WHATSAPP)
+            .order_by("-last_inbound_at")
+            .first()
+            if owner
+            else None
+        )
+        if conversation and conversation.is_service_window_open():
+            notices.append((conversation, text))
+        else:
+            record_event(
+                "whatsapp.owner_notice_skipped",
+                contact=contact,
+                channel=Channel.WHATSAPP,
+                summary=f"Aviso de handoff para {number} sem janela aberta; ficou só no painel",
+            )
+    return notices

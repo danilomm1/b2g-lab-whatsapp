@@ -176,6 +176,21 @@ class GraphClient:
         """POST com corpo JSON. Por padrão, tratado como não idempotente (ex.: enviar mensagem)."""
         return self.request("POST", path, json_body=json_body, idempotent=idempotent)
 
+    def download(self, url: str, *, max_bytes: int = 100 * 1024 * 1024) -> tuple[bytes, str]:
+        """Baixa um arquivo da Meta (ex.: URL de mídia, que exige o token): (bytes, tipo)."""
+        if not self.access_token:
+            raise ImproperlyConfigured("Token da Graph API ausente (META_SYSTEM_USER_TOKEN).")
+        headers = {"Authorization": f"Bearer {self.access_token}"}
+        try:
+            response = self._http.get(url, headers=headers, follow_redirects=True)
+        except httpx.TransportError as exc:
+            raise GraphAPIError(f"Falha de rede ao baixar mídia: {exc}", network=True) from exc
+        if not response.is_success:
+            raise _error_from_response(response)
+        if len(response.content) > max_bytes:
+            raise GraphAPIError(f"Arquivo maior que {max_bytes} bytes", status=response.status_code)
+        return response.content, response.headers.get("Content-Type", "")
+
     def request(
         self,
         method: str,
@@ -184,6 +199,7 @@ class GraphClient:
         params: dict[str, Any] | None = None,
         data: dict[str, Any] | None = None,
         json_body: dict[str, Any] | None = None,
+        files: dict[str, Any] | None = None,
         idempotent: bool = True,
     ) -> dict[str, Any]:
         """Faz a chamada; erros transitórios são repetidos, os demais viram GraphAPIError.
@@ -209,6 +225,7 @@ class GraphClient:
                     params=params,
                     data=data,
                     json=json_body,
+                    files=files,
                     headers=headers,
                 )
             except httpx.TransportError as exc:
