@@ -1,0 +1,9 @@
+[Unit]
+Description=Renovação do certificado Let's Encrypt (certbot, desafio pela porta 80 do Caddy)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Só renova perto do vencimento; o hook em renewal-hooks/deploy entrega o novo ao Caddy
+ExecStart=/opt/certbot/bin/certbot renew --quiet

@@ -1,0 +1,24 @@
+# Caddy do servidor de validação (ADR 0005). O deploy troca LAB_DOMAIN pelo domínio real.
+# Só esse domínio é atendido: qualquer outro nome, ou o IP direto, tem a conexão encerrada.
+# O certificado vem do certbot (deploy.py e certbot-renew.timer); o Caddy não emite nenhum.
+# Este arquivo tem a porta 80. A parte HTTPS (Caddyfile.https) entra depois que o certificado
+# existe, porque o Caddy não sobe apontando para um certificado que ainda não foi emitido.
+{
+	auto_https off
+}
+
+# Desafio HTTP-01 do certbot (webroot) e redirecionamento para HTTPS
+http://LAB_DOMAIN {
+	handle /.well-known/acme-challenge/* {
+		root * /var/www/acme
+		file_server
+	}
+
+	handle {
+		redir https://{host}{uri} 308
+	}
+}
+
+http:// {
+	abort
+}

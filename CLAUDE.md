@@ -43,8 +43,8 @@ O site **brave2grow.com** já possui o gerenciamento interno do funil de vendas.
 - **Config/segredos:** `django-environ` + arquivo `.env` (nunca versionado)
 - **Testes:** `pytest` + `pytest-django` + `respx` (mock de chamadas HTTP)
 - **Qualidade:** `ruff` (lint e format)
-- **Túnel local para webhooks:** `cloudflared` ou `ngrok`
-- **Deploy de validação:** AWS EC2 (instância t3.micro ou equivalente elegível ao free tier da conta; confirmar elegibilidade no console AWS), Ubuntu, Gunicorn + Caddy (HTTPS automático)
+- **Webhooks reais:** somente no servidor de validação (EC2 com HTTPS); sem túneis expondo a máquina local (ADR 0005). Localmente, eventos simulados e assinados
+- **Deploy de validação:** AWS EC2 `b2g-labs-meta` (t3.micro, Amazon Linux 2023), Gunicorn + Caddy atendendo só o domínio do servidor, certificado Let's Encrypt pelo certbot, publicado com `python deploy.py` (docs/deploy/ec2.md). O `deploy.py` fica fora do Git, porque traz IP, domínio e email da conta do certificado; não citar esses valores em arquivos versionados
 
 ### Por que essas escolhas
 
@@ -273,9 +273,6 @@ python manage.py run_huey
 # testes e qualidade
 pytest
 ruff check . && ruff format .
-
-# túnel para webhooks locais
-cloudflared tunnel --url http://localhost:8000
 ```
 
 ## 10. Variáveis de ambiente previstas (`.env.example`)

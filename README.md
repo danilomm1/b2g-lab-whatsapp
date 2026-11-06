@@ -78,6 +78,16 @@ Com o servidor e o consumidor do Huey rodando, o provedor de teste `lab` percorr
 
 As entregas ficam em Admin > Webhooks, com o payload bruto. Detalhes em [docs/decisions/0003-esteira-de-webhooks.md](docs/decisions/0003-esteira-de-webhooks.md).
 
+## Meta (Graph API e webhooks)
+
+O estado da integração está em [docs/integrations/meta.md](docs/integrations/meta.md), e o passo a passo do painel da Meta, tela por tela (portfólio, cadastro de desenvolvedor, app, usuário do sistema, token e webhook), em [docs/treinamento/configurar-meta-facebook-instagram.md](docs/treinamento/configurar-meta-facebook-instagram.md). No laboratório:
+
+```powershell
+.\.venv\Scripts\python.exe manage.py meta_check             # confere token, permissões e ativos
+```
+
+Webhooks reais da Meta só chegam no servidor de validação (EC2), nunca na máquina local: não usamos túneis ([ADR 0005](docs/decisions/0005-webhooks-reais-somente-na-ec2.md)). Localmente, os testes simulam eventos assinados. Servidor e deploy (`python deploy.py`) em [docs/deploy/ec2.md](docs/deploy/ec2.md).
+
 ## Estrutura
 
 ```
