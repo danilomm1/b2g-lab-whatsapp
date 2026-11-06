@@ -98,6 +98,7 @@ O token só alcança a WABA de teste depois que ela for atribuída ao usuário d
 
 - 06/11/2026: recebimento e envio cobertos por testes com payloads da documentação atual (BSUID incluído) e a Graph API mockada.
 - 06/11/2026: primeira conversa real. Mensagens de texto do celular cadastrado para o número de teste chegaram na EC2 assinadas e foram processadas: contato criado com telefone em E.164, identidade pelo BSUID (o número de teste recebe BSUID, com `user_id` e `wa_id` no bloco `contacts` e `from_user_id` na mensagem), conversa aberta no `phone_number_id` com a janela de 24h e um evento por mensagem.
+- 06/11/2026: primeiro envio real, uma resposta de texto pela tela de conversa dentro da janela. Os webhooks de status chegaram na ordem enviada, entregue e lida, e o bloco `pricing` veio com a categoria `service` (resposta dentro da janela, coberta pela cota grátis de 1.000 por mês).
 
 ## Limitações encontradas
 
@@ -105,7 +106,7 @@ O token só alcança a WABA de teste depois que ela for atribuída ao usuário d
 
 ## Próximos passos
 
-1. Primeiro envio real (passo 7), com resposta dentro da janela e status de entrega pelo webhook.
+1. Validar a ida e volta dos botões interativos pela tela de conversa.
 2. Catálogo de templates (`apps/whatsapp/templates_catalog.py`) e sincronização de status de aprovação (campo `message_template_status_update`).
 3. Motor de fluxo conversacional: nós de mensagem, pergunta, condição, chamada de API e handoff humano. Os envios dos fluxos precisam sair depois do commit da transação do webhook.
 4. Resposta automática de confirmação para a palavra de saída.
