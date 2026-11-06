@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}{{ conversation.contact }}{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+  <a href="{% url 'whatsapp:conversation_list' %}" class="text-sm text-slate-500 hover:text-slate-900">Conversas</a>
+  <h1 class="mt-1 text-2xl font-semibold tracking-tight">{{ conversation.contact }}</h1>
+  <p class="mt-1 text-sm text-slate-500">
+    {% if conversation.contact.phone %}{{ conversation.contact.phone }} · {% endif %}WhatsApp
+  </p>
+</div>
+
+{% if messages %}
+<ul class="mb-4 space-y-2">
+  {% for message in messages %}
+  <li class="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm">{{ message }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+<section class="rounded-lg border border-slate-200 bg-white p-5">
+  <div class="flex items-baseline justify-between">
+    <h2 class="text-base font-semibold">Mensagens</h2>
+    <span class="text-xs text-slate-400">atualiza a cada 5 s</span>
+  </div>
+  <div id="thread" class="mt-4" hx-get="{% url 'whatsapp:conversation_thread' conversation.pk %}" hx-trigger="every 5s" hx-swap="innerHTML">
+    {% include "whatsapp/partials/thread.html" %}
+  </div>
+</section>
+
+<section class="mt-6 rounded-lg border border-slate-200 bg-white p-5">
+  <h2 class="text-base font-semibold">Responder</h2>
+  <p class="mt-1 text-xs text-slate-500">
+    Texto livre só dentro da janela de 24h. Com o dry-run ativo, a mensagem fica como simulada; com ele desligado, só sai para números da allowlist.
+  </p>
+  <form class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-start"
+        method="post" action="{% url 'whatsapp:reply' conversation.pk %}"
+        hx-post="{% url 'whatsapp:reply' conversation.pk %}" hx-target="#thread" hx-swap="innerHTML"
+        hx-on::after-request="if (event.detail.successful) this.reset()">
+    {% csrf_token %}
+    <label for="reply-body" class="sr-only">Mensagem</label>
+    <textarea id="reply-body" name="body" rows="2" required maxlength="4096"
+              class="min-h-11 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+              placeholder="Escreva a resposta"></textarea>
+    <button type="submit" class="min-h-11 shrink-0 cursor-pointer rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">Enviar</button>
+  </form>
+  <form class="mt-3" method="post" action="{% url 'whatsapp:send_test_buttons' conversation.pk %}"
+        hx-post="{% url 'whatsapp:send_test_buttons' conversation.pk %}" hx-target="#thread" hx-swap="innerHTML">
+    {% csrf_token %}
+    <button type="submit" class="min-h-11 cursor-pointer rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+      Enviar mensagem de teste com botões
+    </button>
+  </form>
+</section>
+{% endblock %}
