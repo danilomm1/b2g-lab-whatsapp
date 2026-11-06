@@ -1,6 +1,6 @@
 # Meta (Business, Graph API e webhooks)
 
-**Versão da API:** Graph API v26.0, lançada em 29/07/2026 (`META_GRAPH_API_VERSION`). A v25.0 fica disponível até 29/07/2028. O app foi criado em 06/11/2026 já na v27.0 (versão padrão dos campos de webhook no painel); avaliar a troca na Fase 2.
+**Versão da API:** Graph API v27.0 (`META_GRAPH_API_VERSION`) desde o fechamento da Fase 2, em 06/11/2026. É a versão padrão dos campos de webhook do app no painel e a dos exemplos atuais do WhatsApp; a tabela de versões da Graph API ainda listava a v26.0 (lançada em 29/07/2026) como a mais recente, mas a v27.0 respondeu normalmente. A v25.0 fica disponível até 29/07/2028.
 **Última revisão:** 06/11/2026 (Fase 1 concluída)
 
 Base comum para WhatsApp, Instagram e Facebook. Threads usa API própria (graph.threads.net) e entra na Fase 4.
@@ -89,5 +89,5 @@ Observações:
 ## Próximos passos
 
 - Fase 2: número de teste do WhatsApp, handler de `whatsapp_business_account` e assinatura do campo `messages`.
-- Avaliar a troca de `META_GRAPH_API_VERSION` para v27.0.
+- Troca de `META_GRAPH_API_VERSION` para v27.0: feita no fechamento da Fase 2.
 - Fase 3: adicionar as permissões de Página e Instagram aos casos de uso, gerar token novo, conectar a Página ao app (Configurações da API do Messenger > 2. Gere tokens de acesso) e assinar os campos de `page` e `instagram`.
