@@ -31,6 +31,8 @@ INSTALLED_APPS = [
     "apps.webhooks",
     "apps.meta_business",
     "apps.whatsapp",
+    "apps.instagram",
+    "apps.facebook",
 ]
 
 MIDDLEWARE = [
