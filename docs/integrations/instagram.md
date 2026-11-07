@@ -14,7 +14,7 @@ Base comum (app, usuário do sistema, token, webhook único) em [meta.md](meta.m
 - **Conta inscrita no app:** `POST /<IG_ID>/subscribed_apps` com os mesmos oito campos, confirmado por `GET /<IG_ID>/subscribed_apps`.
 - **Mensagens:** `GET /<IG_ID>/conversations?platform=instagram` respondeu com a lista de conversas, então o acesso às mensagens pela API já está liberado na conta.
 - **Eventos de teste:** os exemplos de `comments` e `messages` do botão "Teste" chegaram ao servidor assinados, com rota `instagram`, e ficaram como "ignorados" (sem handler ainda).
-- **Ainda não feito:** função de testador para uma conta pessoal e publicação do app (meta.md).
+- **Ainda não feito:** aceite do convite de testador na conta pessoal de testes e clique em "Publicar" no app (meta.md).
 - **Código:** ainda não existe app `instagram`.
 
 ## Como a API funciona nesta configuração
@@ -85,7 +85,7 @@ Feito em 06/11/2026 pelo Chrome de depuração (etapas comuns em [meta.md](meta.
 
 Falta:
 
-4. **Testador:** Funções do app > Funções > Testadores do Instagram: convidar o @ pessoal do Danilo e aceitar o convite no Instagram dele (a confirmar onde o convite aparece).
+4. **Testador:** convite enviado em 07/11/2026 para a conta pessoal de testes (Funções do app > Funções > Adicionar pessoas > "Testador do Instagram"). Falta aceitar no Instagram dessa conta: Configurações > Apps e sites > Convites de testador.
 5. **Acesso às mensagens:** se algum envio devolver o erro 200 citado acima, ligar "Permitir acesso às mensagens" no app do Instagram da @brave2grow.
 
 ## Plano de implementação (`apps/instagram`)
@@ -122,7 +122,7 @@ Acesso avançado (App Review) só seria pedido para receber comentários por web
 ## O que funcionou
 
 - 06/11/2026: permissões adicionadas, token novo com acesso à conta, webhook verificado e conta inscrita no app. Eventos de teste de `comments` e `messages` chegaram ao servidor assinados, com rota `instagram`.
-- Ainda sem evento real de pessoa (falta testador e, pela documentação, o app publicado).
+- Ainda sem evento real de pessoa (falta o aceite do testador e, pela documentação, o app publicado).
 
 ## Limitações encontradas
 

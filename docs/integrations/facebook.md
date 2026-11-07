@@ -14,7 +14,7 @@ Base comum (app, usuário do sistema, token, webhook único) em [meta.md](meta.m
 - **App inscrito na Página:** `POST /<PAGE_ID>/subscribed_apps` com os mesmos nove campos e o token da Página, confirmado por `GET /<PAGE_ID>/subscribed_apps`. Isso substitui o "2. Gere tokens de acesso" do painel do Messenger.
 - **Evento de teste:** o exemplo de `feed` do botão "Teste" (um post de status) chegou ao servidor.
 - **Usuário do sistema:** a Página está atribuída com acesso total (meta.md).
-- **Ainda não feito:** função de testador para uma conta pessoal do Facebook e publicação do app (meta.md).
+- **Quem testa:** o perfil "Bravo To Grow", administrador do app. **Ainda não feito:** clique em "Publicar" no app (meta.md).
 - **Código:** ainda não existe app `facebook`. Entregas com `object: page` ficam como "ignoradas", com o payload guardado.
 
 ## Como a API funciona
@@ -69,9 +69,7 @@ Feito em 06/11/2026 pelo Chrome de depuração (etapas comuns em [meta.md](meta.
 3. **Campos do webhook:** Configurações da API do Messenger > "1. Configure webhooks" > tabela "Campos do webhook": ligar o interruptor "Assinar" de cada campo. O `feed` fica nessa mesma tabela.
 4. **Inscrição na Página:** `POST /<PAGE_ID>/subscribed_apps` com o token da Página, em vez da tela "2. Gere tokens de acesso". O comando de conferência do laboratório vai repetir e conferir isso.
 
-Falta:
-
-5. **Testador:** a conta pessoal do Facebook do Danilo como Testador do app (Funções do app > Funções > Adicionar pessoas), com o convite aceito por ele.
+5. **Quem testa:** o perfil "Bravo To Grow", que já é administrador do app, manda as mensagens e comentários de teste para a Página. Nenhum convite foi necessário.
 
 ## Plano de implementação (`apps/facebook`)
 
@@ -108,7 +106,7 @@ Ordem e dependências da fase em [meta.md](meta.md).
 
 - Fase 1: o evento de teste do campo `messages` chegou assinado e roteado como `page` (meta.md).
 - 06/11/2026: permissões adicionadas, token novo com as permissões de Página, token da Página obtido pelo usuário do sistema, nove campos assinados e app inscrito na Página. O exemplo de `feed` chegou ao servidor.
-- Ainda sem evento real de pessoa (falta testador).
+- Ainda sem evento real de pessoa: falta o teste do "Bravo To Grow" mandando mensagem e comentando na Página.
 
 ## Limitações encontradas
 
