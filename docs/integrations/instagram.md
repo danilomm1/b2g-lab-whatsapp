@@ -14,7 +14,7 @@ Base comum (app, usuário do sistema, token, webhook único) em [meta.md](meta.m
 - **Conta inscrita no app:** `POST /<IG_ID>/subscribed_apps` com os mesmos oito campos, confirmado por `GET /<IG_ID>/subscribed_apps`.
 - **Mensagens:** `GET /<IG_ID>/conversations?platform=instagram` respondeu com a lista de conversas, então o acesso às mensagens pela API já está liberado na conta.
 - **Eventos de teste:** os exemplos de `comments` e `messages` do botão "Teste" chegaram ao servidor assinados, com rota `instagram`, e ficaram como "ignorados" (sem handler ainda).
-- **Ainda não feito:** aceite do convite de testador na conta pessoal de testes e clique em "Publicar" no app (meta.md).
+- **App publicado** em 07/11/2026 (meta.md). **Ainda não feito:** aceite do convite de testador na conta pessoal de testes.
 - **Código:** ainda não existe app `instagram`.
 
 ## Como a API funciona nesta configuração
@@ -71,7 +71,7 @@ Callback na etapa "3. Configurar webhooks" (mesmo endereço e verify token da Fa
 ## Modo de desenvolvimento: quem gera eventos
 
 - Com acesso padrão (sem App Review), a API só funciona com pessoas que têm função no app. A conta pessoal usada nos testes precisa de função no app e do papel de Testador do Instagram, aceito no próprio Instagram.
-- A documentação de webhooks diz que o app precisa estar publicado (Live) para entregar notificações de usuários do app, mesmo sem App Review. O app ainda não está publicado. Decisão em aberto em [meta.md](meta.md).
+- A documentação de webhooks diz que o app precisa estar publicado (Live) para entregar notificações de usuários do app, mesmo sem App Review. O app foi publicado em 07/11/2026 ([meta.md](meta.md)), ainda com acesso padrão.
 - **Comentários por webhook exigem acesso avançado**, que só vem com App Review. A resposta privada no Instagram também lista acesso avançado como requisito. Para app que atende só a própria empresa, a Meta diz que o App Review não é necessário, mas sem ele esses dois recursos ficam de fora.
 - Plano para não depender do App Review: ler comentários por consulta periódica (tarefa do Huey sobre as mídias recentes) e usar o botão "Testar" do painel para validar o formato do webhook.
 
@@ -122,7 +122,7 @@ Acesso avançado (App Review) só seria pedido para receber comentários por web
 ## O que funcionou
 
 - 06/11/2026: permissões adicionadas, token novo com acesso à conta, webhook verificado e conta inscrita no app. Eventos de teste de `comments` e `messages` chegaram ao servidor assinados, com rota `instagram`.
-- Ainda sem evento real de pessoa (falta o aceite do testador e, pela documentação, o app publicado).
+- Ainda sem evento real de pessoa (falta o aceite do testador; o app já está publicado).
 
 ## Limitações encontradas
 

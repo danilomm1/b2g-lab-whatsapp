@@ -14,7 +14,7 @@ Base comum (app, usuário do sistema, token, webhook único) em [meta.md](meta.m
 - **App inscrito na Página:** `POST /<PAGE_ID>/subscribed_apps` com os mesmos nove campos e o token da Página, confirmado por `GET /<PAGE_ID>/subscribed_apps`. Isso substitui o "2. Gere tokens de acesso" do painel do Messenger.
 - **Evento de teste:** o exemplo de `feed` do botão "Teste" (um post de status) chegou ao servidor.
 - **Usuário do sistema:** a Página está atribuída com acesso total (meta.md).
-- **Quem testa:** o perfil "Bravo To Grow", administrador do app. **Ainda não feito:** clique em "Publicar" no app (meta.md).
+- **Quem testa:** o perfil "Bravo To Grow", administrador do app. O app foi publicado em 07/11/2026 (meta.md).
 - **Código:** ainda não existe app `facebook`. Entregas com `object: page` ficam como "ignoradas", com o payload guardado.
 
 ## Como a API funciona
@@ -58,7 +58,7 @@ Resumo da documentação oficial lida em 06/11/2026 (Pages API e Messenger Platf
 ## Modo de desenvolvimento: quem gera eventos
 
 - Com acesso padrão, as permissões e os recursos só valem para pessoas com função no app. A conta pessoal do Facebook usada nos testes precisa de função no app (Funções do app > Funções, como Testador).
-- O evento de teste da Fase 1 chegou com o app não publicado. Eventos reais de pessoas talvez exijam o app publicado, como a documentação do Instagram diz. Decisão em aberto em [meta.md](meta.md).
+- O evento de teste da Fase 1 chegou com o app não publicado. Eventos reais de pessoas talvez exijam o app publicado, como a documentação do Instagram diz; o app foi publicado em 07/11/2026 ([meta.md](meta.md)), ainda com acesso padrão.
 
 ## Passo a passo no painel
 
