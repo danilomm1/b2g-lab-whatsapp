@@ -9,9 +9,9 @@ import respx
 from django.core.management import CommandError, call_command
 
 from apps.credentials.models import IntegrationCredential, Platform
-from apps.facebook.services import PAGE_WEBHOOK_FIELDS, page_access_token
+from apps.facebook.services import PAGE_WEBHOOK_FIELDS
 from apps.instagram.services import INSTAGRAM_WEBHOOK_FIELDS
-from apps.meta_business.services import app_subscription
+from apps.meta_business.services import app_subscription, page_access_token
 
 GRAPH = "https://graph.facebook.com/v27.0"
 PAGE_ID = "111"

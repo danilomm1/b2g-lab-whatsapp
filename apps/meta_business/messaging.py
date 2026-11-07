@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
+from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -103,9 +104,11 @@ def resolve_user(
 ) -> ChannelIdentity:
     """Encontra ou cria o contato e a identidade de quem escreveu (IGSID ou PSID).
 
-    O webhook não traz nome nem telefone; um contato novo nasce só com a origem.
+    O webhook não traz nome nem telefone: um contato novo nasce só com a origem, e o
+    perfil é buscado logo depois (profiles.fetch_profile).
     """
     identity = find_identity(channel, account_id, user_id)
+    created = identity is None
     if identity is None:
         contact = Contact.objects.create(source=source)
         identity = ChannelIdentity(
@@ -120,7 +123,16 @@ def resolve_user(
         identity.handle = handle
     identity.last_seen_at = max(identity.last_seen_at or seen_at, seen_at)
     identity.save()
+    if created:
+        _schedule_profile_fetch(identity.pk)
     return identity
+
+
+def _schedule_profile_fetch(identity_id: int) -> None:
+    """Nome e @ vêm da User Profile API, consultada depois do commit."""
+    from .tasks import fetch_user_profile
+
+    transaction.on_commit(lambda: fetch_user_profile(identity_id))
 
 
 def open_conversation(contact: Contact, channel: str, account_id: str) -> Conversation:

@@ -10,11 +10,13 @@ from django.conf import settings
 from django.utils import timezone
 
 from apps.credentials.models import IntegrationCredential, Platform
-from apps.credentials.services import save_token
+from apps.credentials.services import get_credential, save_token
 
 from .client import GraphClient, app_access_token
 
 SYSTEM_USER_LABEL = "system_user"
+# Token da Página, gravado pelo facebook_check; serve também ao Instagram conectado a ela
+PAGE_TOKEN_LABEL = "page"
 
 # Permissões que dão acesso a cada ativo configurado no .env
 ASSET_SCOPES: dict[str, tuple[str, ...]] = {
@@ -169,3 +171,8 @@ def app_subscription(response: dict[str, Any]) -> list[str] | None:
         if str(item.get("id") or item.get("app_id") or "") == str(settings.META_APP_ID):
             return [str(field) for field in item.get("subscribed_fields") or []]
     return None
+
+
+def page_access_token() -> str:
+    """Token da Página gravado pelo facebook_check (CredentialNotFound se ainda não rodou)."""
+    return get_credential(Platform.FACEBOOK, PAGE_TOKEN_LABEL).access_token

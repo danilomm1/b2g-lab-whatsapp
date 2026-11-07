@@ -13,11 +13,9 @@ from typing import Any
 from django.conf import settings
 
 from apps.credentials.models import IntegrationCredential, Platform
-from apps.credentials.services import get_credential, save_token
+from apps.credentials.services import save_token
 from apps.meta_business.client import GraphClient
-from apps.meta_business.services import TokenInfo, app_subscription
-
-PAGE_TOKEN_LABEL = "page"
+from apps.meta_business.services import PAGE_TOKEN_LABEL, TokenInfo, app_subscription
 
 # Campos assinados no painel (Messenger > Configurações da API) e na inscrição da Página
 PAGE_WEBHOOK_FIELDS = (
@@ -90,11 +88,6 @@ def save_page_token(page: PageInfo, info: TokenInfo | None = None) -> Integratio
         credential.is_active = info.is_valid
     credential.save()
     return credential
-
-
-def page_access_token() -> str:
-    """Token da Página gravado pelo facebook_check (CredentialNotFound se ainda não rodou)."""
-    return get_credential(Platform.FACEBOOK, PAGE_TOKEN_LABEL).access_token
 
 
 def page_subscription(client: GraphClient, page_id: str) -> list[str] | None:
