@@ -43,6 +43,7 @@ Callback na etapa "3. Configurar webhooks" (mesmo endereço e verify token da Fa
 | `story_insights` | `instagram_manage_insights` | Métricas de stories (só as primeiras 24h) |
 
 - **DM:** `entry[].messaging[]` com `sender.id` (IGSID de quem escreveu), `recipient.id` (a conta), `timestamp` e `message` (`mid`, `text`, `attachments`, `is_echo`, `is_deleted`, `reply_to`). Não existe campo `message_echoes` no Instagram: o eco vem em `messages` com `is_echo: true` e o `sender` é a própria conta. Desde 27/04/2026 o anexo `share` virou `ig_post`; há também `message_edit`.
+- **DM real (confirmado em 07/11/2026):** chegou em `entry[].messaging[]`, como a documentação diz. `entry.id` e `recipient.id` são o ID da conta @brave2grow, `sender.id` é o IGSID do testador, e `entry.time` e `messaging[].timestamp` vêm em **milissegundos** (no WhatsApp são segundos). A entrega traz os cabeçalhos `X-Hub-Signature-256` e `Facebook-Api-Version`. Cada DM veio numa entrega separada.
 - **Comentário:** `entry[].changes[]` com `field: comments` e `value` com `from.id` (IGSID), `from.username`, o ID do comentário, `parent_id`, `text`, `media.id` e `media.media_product_type`. A documentação do login do Facebook chama o ID de `comment_id`; o exemplo do painel na v27.0 usa `id` e traz também `from.self_ig_scoped_id`. Aceitar os dois nomes.
 - **Eventos de teste do painel:** o botão "Teste" manda até os campos de mensagem no formato `changes[]` (`field: messages`, `value` com `sender`, `recipient`, `timestamp` e `message`), não em `messaging[]`. O handler precisa aceitar os dois formatos para os testes do painel servirem.
 
@@ -122,11 +123,11 @@ Acesso avançado (App Review) só seria pedido para receber comentários por web
 ## O que funcionou
 
 - 06/11/2026: permissões adicionadas, token novo com acesso à conta, webhook verificado e conta inscrita no app. Eventos de teste de `comments` e `messages` chegaram ao servidor assinados, com rota `instagram`.
-- Ainda sem evento real de pessoa (app publicado e testador aceito em 07/11/2026; falta a primeira DM de teste).
+- 07/11/2026: app publicado e testador aceito. Duas DMs reais da conta de teste para a @brave2grow chegaram ao servidor segundos depois do envio, assinadas, com rota `instagram`, e ficaram como "ignoradas" com o payload guardado (sem handler ainda). Isso confirma o caminho completo: app publicado, testador, inscrição da conta e webhook.
 
 ## Limitações encontradas
 
-Ainda sem teste real. Limitações conhecidas pela documentação: comentários por webhook só com acesso avançado, webhooks só com app publicado, mídia de publicação só por URL pública, conta privada não recebe notificação de comentário.
+Só a DM foi testada de verdade, e chegou. Limitações conhecidas pela documentação: comentários por webhook só com acesso avançado, webhooks só com app publicado, mídia de publicação só por URL pública, conta privada não recebe notificação de comentário.
 
 ## Custos observados
 
