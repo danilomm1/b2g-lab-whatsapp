@@ -155,3 +155,17 @@ def sync_system_user_credential(token: str, info: TokenInfo) -> IntegrationCrede
     }
     credential.save()
     return credential
+
+
+def app_subscription(response: dict[str, Any]) -> list[str] | None:
+    """Campos de webhook que o app do laboratório assina, numa resposta de subscribed_apps.
+
+    None se o app não está inscrito. A Página identifica o app por "id"; o Instagram, por
+    "app_id".
+    """
+    for item in response.get("data") or []:
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("id") or item.get("app_id") or "") == str(settings.META_APP_ID):
+            return [str(field) for field in item.get("subscribed_fields") or []]
+    return None
