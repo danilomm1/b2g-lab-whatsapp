@@ -10,10 +10,10 @@ O passo a passo detalhado, tela por tela, está em [docs/treinamento/configurar-
 ## O que está configurado
 
 - **Portfólio:** "Brave2Grow Tecnologia", com verificação da empresa concluída (veio junto com o Meta Verified para empresas, contratado em 03/11/2026). Administrado pelo usuário do Facebook "Bravo To Grow", um usuário operacional da Brave2Grow.
-- **App:** "B2G Integrations Lab", criado em 06/11/2026 no sistema novo de casos de uso, ligado ao portfólio, ainda não publicado (modo de desenvolvimento). Casos de uso: WhatsApp ("Conectar-se com clientes pelo WhatsApp"), Página ("Gerenciar tudo na sua Página"), Instagram ("Gerenciar mensagens e conteúdo no Instagram") e Messenger ("Interagir com os clientes no Messenger"). App ID e App Secret em `META_APP_ID` e `META_APP_SECRET`.
+- **App:** "B2G Integrations Lab", criado em 06/11/2026 no sistema novo de casos de uso, ligado ao portfólio, publicado em 07/11/2026 (com acesso padrão, sem App Review). Casos de uso: WhatsApp ("Conectar-se com clientes pelo WhatsApp"), Página ("Gerenciar tudo na sua Página"), Instagram ("Gerenciar mensagens e conteúdo no Instagram") e Messenger ("Interagir com os clientes no Messenger"). App ID e App Secret em `META_APP_ID` e `META_APP_SECRET`.
 - **Usuário do sistema:** "B2G Lab API", função Admin. Ativos atribuídos: Página Brave2Grow (acesso total), app B2G Integrations Lab (gerenciar app) e Instagram @brave2grow (conteúdo, mensagens, atividade da comunidade e insights).
-- **Token do usuário do sistema:** sem expiração, em `META_SYSTEM_USER_TOKEN` e criptografado em `IntegrationCredential` (`meta` / `system_user`) pelo `meta_check`. Permissões: `business_management`, `pages_show_list`, `pages_manage_metadata`, `pages_messaging`, `whatsapp_business_management`, `whatsapp_business_messaging` (e `public_profile`, automática).
-- **Webhook:** configurado no caso de uso do Messenger (Configurações da API do Messenger > 1. Configure webhooks) com callback `https://<domínio do servidor>/webhooks/meta/` (EC2 `b2g-labs-meta`, ADR 0005; domínio no `deploy.py` local) e o `META_WEBHOOK_VERIFY_TOKEN`. Nenhum campo assinado ainda.
+- **Token do usuário do sistema:** sem expiração, em `META_SYSTEM_USER_TOKEN` e criptografado em `IntegrationCredential` (`meta` / `system_user`) pelo `meta_check`. O token atual foi gerado em 06/11/2026, na Fase 3, com as 16 permissões da tabela abaixo (e `public_profile`, automática). Está no `.env` local e no do servidor (trocado em 07/11/2026, só essa linha, com backup do `.env` anterior nas duas máquinas). O token anterior, só com as permissões das Fases 1 e 2, não foi revogado: "Revoke tokens" revoga todos os tokens do usuário do sistema para o app, inclusive o novo.
+- **Webhook:** configurado no caso de uso do Messenger (Configurações da API do Messenger > 1. Configure webhooks) com callback `https://<domínio do servidor>/webhooks/meta/` (EC2 `b2g-labs-meta`, ADR 0005; domínio no `deploy.py` local) e o `META_WEBHOOK_VERIFY_TOKEN`. Campos assinados: os do objeto `page` nessa mesma tela ([facebook.md](facebook.md)), os do objeto `instagram` na aba do login unificado do caso de uso do Instagram ([instagram.md](instagram.md)) e os do `whatsapp_business_account` pela API ([whatsapp.md](whatsapp.md)).
 - **WhatsApp:** a conta que existe no portfólio é do tipo "Aplicativo WhatsApp Business" (o número usado no app comum). Ela não vai para `WHATSAPP_BUSINESS_ACCOUNT_ID`: a Fase 2 começa pelo número de teste, e a migração do número real depende da decisão sobre coexistência (CLAUDE.md, 5.6).
 
 ## Como o laboratório integra
@@ -21,7 +21,7 @@ O passo a passo detalhado, tela por tela, está em [docs/treinamento/configurar-
 - **Webhook** (`apps/meta_business/webhook.py`): provedor `meta` na esteira da Fase 0 (ADR 0003).
   - Assinatura `X-Hub-Signature-256`: HMAC-SHA256 do corpo bruto com o App Secret, prefixo `sha256=`.
   - Handshake: GET com `hub.mode=subscribe`, `hub.verify_token` e `hub.challenge`; a resposta é o challenge em texto puro.
-  - Rota: campo `object`. O handler de `whatsapp_business_account` existe desde a Fase 2 ([whatsapp.md](whatsapp.md)); os de `instagram` e `page` chegam na Fase 3. Até lá essas entregas ficam como "ignoradas", com o payload guardado.
+  - Rota: campo `object`. O handler de `whatsapp_business_account` existe desde a Fase 2 ([whatsapp.md](whatsapp.md)); os de `instagram` e `page` existem desde a Fase 3 ([instagram.md](instagram.md), [facebook.md](facebook.md)), com a leitura comum da Messenger Platform em `apps/meta_business/messaging.py`. Objetos sem handler ficam como "ignorados", com o payload guardado.
   - A Meta manda lotes de até 1000 atualizações e reenvia por até 36 horas sem confirmação. A deduplicação usa o hash do corpo, e os IDs externos únicos de `Message` e `Event` cobrem o resto.
 - **Graph API** (`apps/meta_business/client.py`):
   - Token no cabeçalho `Authorization`, nunca na URL; o log do `httpx` fica em WARNING para não gravar URLs.
@@ -43,22 +43,59 @@ O passo a passo detalhado, tela por tela, está em [docs/treinamento/configurar-
 | `pages_show_list` | Listar as Páginas | 3 | sim |
 | `pages_manage_metadata` | Assinar webhooks da Página | 3 | sim |
 | `pages_messaging` | Messenger | 3 | sim |
-| `pages_read_engagement` | Posts, seguidores e engajamento | 3 | não |
-| `pages_manage_posts` | Publicar na Página | 3 | não |
-| `pages_manage_engagement` | Responder e curtir comentários | 3 | não |
-| `pages_read_user_content` | Ler comentários de usuários | 3 | não |
-| `read_insights` | Insights da Página | 3 | não |
-| `instagram_basic` | Perfil e mídias | 3 | não |
-| `instagram_manage_comments` | Comentários | 3 | não |
-| `instagram_manage_messages` | Direct | 3 | não |
-| `instagram_content_publish` | Publicação | 3 | não |
-| `instagram_manage_insights` | Insights | 3 | não |
+| `pages_read_engagement` | Posts, seguidores e engajamento | 3 | sim |
+| `pages_manage_posts` | Publicar na Página | 3 | sim |
+| `pages_manage_engagement` | Responder e curtir comentários | 3 | sim |
+| `pages_read_user_content` | Ler comentários de usuários | 3 | sim |
+| `read_insights` | Insights da Página | 3 | sim |
+| `instagram_basic` | Perfil e mídias | 3 | sim |
+| `instagram_manage_comments` | Comentários | 3 | sim |
+| `instagram_manage_messages` | Direct | 3 | sim |
+| `instagram_content_publish` | Publicação | 3 | sim |
+| `instagram_manage_insights` | Insights | 3 | sim |
 
 Observações:
-- No sistema novo de casos de uso, a tela "Gerar token" só oferece as permissões já adicionadas ao caso de uso. As que estão como "não" aparecem com o botão "Adicionar" em Painel > Personalizar caso de uso > Permissões e recursos. Adicionar e gerar um token novo na Fase 3.
-- O app está em modo de desenvolvimento: funciona com os ativos do próprio portfólio e com quem tem função no app. Para dados de terceiros, publicar o app e passar pela análise (App Review).
-- Existe também a família `instagram_business_*` (Instagram API com login do Instagram). A escolha entre ela e o login do Facebook fica para a Fase 3.
+- No sistema novo de casos de uso, a tela "Gerar token" só oferece as permissões já adicionadas ao caso de uso. As que estão como "não" aparecem com o botão "Adicionar" em Painel > Personalizar caso de uso > Permissões e recursos. As da Fase 3 foram adicionadas e entraram no token em 06/11/2026.
+- O app está publicado desde 07/11/2026, mas com acesso padrão: as permissões valem para os ativos do próprio portfólio e para quem tem função no app. Para dados de terceiros, passar pela análise (App Review).
+- A família `instagram_business_*` (login do Instagram) não está disponível para este app: o Instagram usa o login unificado, com as permissões `instagram_*` e o token do usuário do sistema (ADR 0008).
 - Uma permissão sem uso por 90 dias precisa ser concedida de novo.
+
+## Fase 3: preparação (Instagram e Página)
+
+A Fase 3 é desenvolvida no branch `fase-3-instagram-facebook`, a partir do `main` já com a Fase 2 (PR #2). Detalhes de cada canal em [instagram.md](instagram.md) e [facebook.md](facebook.md).
+
+### Etapas comuns no painel
+
+1. **Permissões nos casos de uso** (feito em 06/11/2026): as listas estão em instagram.md e facebook.md.
+2. **Token novo** (feito em 06/11/2026): Configurações do negócio > Usuários do sistema > "B2G Lab API" > Generate token > app B2G Integrations Lab > expiração "Never" > as 16 permissões. A tela avisa "You are not an admin of this app" mesmo com o usuário administrador; todas as permissões apareceram assim mesmo. O `meta_check` confirmou: válido, sem expiração, alcançando Página, Instagram e WhatsApp. O `deploy.py` só cria o `.env` do servidor na primeira vez (ou o recria inteiro com `--replace-env`, o que volta o dry-run e troca a chave secreta), então no servidor foi trocada só a linha do token, por SSH, seguida de reinício do site e do Huey. O `meta_check` e o `whatsapp_check` rodados no servidor confirmaram o token novo e o WhatsApp funcionando.
+3. **Funções para os testes** (07/11/2026): com acesso padrão, quem não tem função no app não gera evento nem recebe mensagem.
+   - Facebook: o perfil usado nos testes é o próprio "Bravo To Grow", que já é administrador do app; não precisou de convite.
+   - Instagram: a conta pessoal de testes foi convidada em Funções do app > Funções > Adicionar pessoas > "Testador do Instagram" (o painel pede o nome de usuário). O convite fica "Pendente" até ser aceito no Instagram da conta convidada, na aba "Convites do testador" de `instagram.com/accounts/manage_access/` (aceito em 07/11/2026). A aba só aparece na conta convidada.
+4. **Publicação do app** (feito em 07/11/2026): a documentação de webhooks do Instagram exige o app publicado (Live) para entregar notificações de usuários do app, mesmo sem App Review. Com acesso padrão, o app publicado continua servindo só quem tem função nele.
+   - Em 07/11/2026, em Configurações do app > Básico: URL da política de privacidade e URL de instruções de exclusão de dados apontando para `https://brave2grow.com/privacidade/` (a seção "Direitos do Titular" indica a exclusão pelo email de contato) e categoria "Negócio e Páginas". O ícone não foi exigido.
+   - A tela Publicar passou a dizer "Todas as configurações necessárias do app foram concluídas". O Danilo clicou em "Publicar" (o clique é dele, por aceitar termos da Meta).
+   - A primeira tentativa devolveu "URL da Política de Privacidade inválido", embora o robô da Meta recebesse 200 na URL (Ferramentas > Depurador de Compartilhamento). Depois que a URL passou pelo Depurador, a tentativa seguinte foi aceita. Se o erro voltar, passar a URL pelo Depurador antes de repetir. O site responde 405 a requisições HEAD nessa URL; não deu para saber se isso pesou.
+   - Resultado: o alerta "Alteração de modo do aplicativo" confirmou o modo publicado, e o botão da tela virou "Tirar do ar". Para voltar ao modo de desenvolvimento, é esse botão.
+   - A política de privacidade atual fala do diagnóstico do site e não cita Instagram, Facebook nem WhatsApp. Antes de atender pessoas sem função no app, ela precisa mencionar essas integrações (CLAUDE.md, seção 13).
+
+### Ordem do trabalho
+
+1. Painel, token e comandos de conferência (`instagram_check` e `facebook_check`): feito em 07/11/2026.
+2. Recebimento: handlers das rotas `instagram` e `page`, com nome e @ dos contatos novos pela User Profile API: feito em 07/11/2026.
+3. Envio de DM e Messenger, comentários e resposta privada.
+4. Publicação, insights e telas.
+
+### O que a Fase 3 reaproveita da Fase 2
+
+- `GraphClient.post` com `idempotent=False`: envio sem repetição depois de timeout de leitura ou erro 5xx.
+- O padrão do app `whatsapp`: handler registrado no `ready()`, recebimento idempotente pelo ID externo, identidade escopada pela conta, palavra de saída e `send_message` único com as travas.
+- A fixture `meta_post` de `tests/conftest.py`, as telas de conversa (`/whatsapp/`) e o motor de fluxo (ADR 0007), que hoje é do WhatsApp e pode servir de base para as respostas automáticas do Instagram e do Messenger.
+
+### Decisões em aberto
+
+- **Allowlist para Instagram e Messenger:** `LAB_ALLOWED_RECIPIENTS` hoje recebe telefones e emails. Proposta: aceitar também `instagram:<IGSID>` e `facebook:<PSID>`, copiados da tela de conversa depois da primeira mensagem do Danilo. A comparação atual já trata esse formato como texto, mas o código deve reconhecer o prefixo antes de tentar ler um telefone.
+- **Mídia para publicar:** o Instagram e as fotos da Página exigem URL pública. Opções: uma pasta de mídia servida pelo Caddy da EC2 ou um bucket S3.
+- **App Review:** pedir acesso avançado só se a consulta periódica de comentários não bastar para a jornada "comentário vira conversa".
 
 ## O que funcionou
 
@@ -90,4 +127,4 @@ Observações:
 
 - Fase 2: número de teste do WhatsApp, handler de `whatsapp_business_account` e assinatura do campo `messages`.
 - Troca de `META_GRAPH_API_VERSION` para v27.0: feita no fechamento da Fase 2.
-- Fase 3: adicionar as permissões de Página e Instagram aos casos de uso, gerar token novo, conectar a Página ao app (Configurações da API do Messenger > 2. Gere tokens de acesso) e assinar os campos de `page` e `instagram`.
+- Fase 3: seguir a seção "Fase 3: preparação" acima (permissões, token novo, funções de teste, publicação do app, webhooks de `page` e `instagram`).

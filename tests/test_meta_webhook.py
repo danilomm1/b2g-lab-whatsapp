@@ -116,12 +116,12 @@ def test_registered_channel_handler_receives_its_object(
     meta_post: Any, page_handler: list[WebhookDelivery]
 ) -> None:
     meta_post({"object": "page", "entry": [{"id": "111", "messaging": []}]})
-    # Instagram ainda sem handler (Fase 3): a entrega fica registrada e ignorada
-    meta_post({"object": "instagram", "entry": [{"id": "222", "changes": []}]})
+    # Objeto sem handler: a entrega fica registrada e ignorada
+    meta_post({"object": "user", "entry": [{"id": "222", "changes": []}]})
 
     assert [d.route_key for d in page_handler] == ["page"]
     statuses = dict(WebhookDelivery.objects.values_list("route_key", "status"))
     assert statuses == {
         "page": DeliveryStatus.PROCESSED,
-        "instagram": DeliveryStatus.IGNORED,
+        "user": DeliveryStatus.IGNORED,
     }
