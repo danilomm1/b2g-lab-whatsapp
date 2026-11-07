@@ -100,6 +100,17 @@ Estado, passo a passo do número de teste no painel, travas de envio, mídia, te
 .\.venv\Scripts\python.exe manage.py whatsapp_send_test --to +55... --text "Oi"   # simulado enquanto LAB_DRY_RUN=True
 ```
 
+## Instagram e Página (Messenger)
+
+Estado, passo a passo no painel e plano em [docs/integrations/instagram.md](docs/integrations/instagram.md) e [docs/integrations/facebook.md](docs/integrations/facebook.md). DMs do Instagram e mensagens do Messenger viram contato, conversa e mensagem, como no WhatsApp; comentários e menções viram eventos. O nome e o @ de quem escreve vêm da Meta logo depois da primeira mensagem, com o token da Página gravado pelo `facebook_check`.
+
+```powershell
+.\.venv\Scripts\python.exe manage.py facebook_check      # Página, tarefas, token da Página (gravado) e campos assinados
+.\.venv\Scripts\python.exe manage.py instagram_check     # conta, acesso ao Direct, campos assinados e cota de publicação
+```
+
+Os dois só leem; `--subscribe` inscreve o app com os campos do laboratório.
+
 ## Estrutura
 
 ```
@@ -108,8 +119,10 @@ apps/        um app Django por canal ou responsabilidade
              core: contatos, consentimentos, conversas, mensagens, eventos, travas de segurança, painel
              credentials: tokens criptografados por plataforma
              webhooks: endpoint único, assinatura, deduplicação e fila
-             meta_business: Graph API, token do usuário do sistema e webhook da Meta
+             meta_business: Graph API, token do usuário do sistema, webhook da Meta e recebimento comum do Instagram e do Messenger
              whatsapp: Cloud API, recebimento, envio com travas, mídia, templates, formulários e fluxos
+             instagram: Direct, comentários e menções, conferência da conta
+             facebook: Messenger e feed da Página, token da Página e conferência
 assets/      entrada do Tailwind (assets/css/tailwind.css)
 templates/   templates compartilhados
 static/      arquivos estáticos (htmx em static/vendor; o CSS gerado não é versionado)

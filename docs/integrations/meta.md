@@ -21,7 +21,7 @@ O passo a passo detalhado, tela por tela, está em [docs/treinamento/configurar-
 - **Webhook** (`apps/meta_business/webhook.py`): provedor `meta` na esteira da Fase 0 (ADR 0003).
   - Assinatura `X-Hub-Signature-256`: HMAC-SHA256 do corpo bruto com o App Secret, prefixo `sha256=`.
   - Handshake: GET com `hub.mode=subscribe`, `hub.verify_token` e `hub.challenge`; a resposta é o challenge em texto puro.
-  - Rota: campo `object`. O handler de `whatsapp_business_account` existe desde a Fase 2 ([whatsapp.md](whatsapp.md)); os de `instagram` e `page` chegam na Fase 3. Até lá essas entregas ficam como "ignoradas", com o payload guardado.
+  - Rota: campo `object`. O handler de `whatsapp_business_account` existe desde a Fase 2 ([whatsapp.md](whatsapp.md)); os de `instagram` e `page` existem desde a Fase 3 ([instagram.md](instagram.md), [facebook.md](facebook.md)), com a leitura comum da Messenger Platform em `apps/meta_business/messaging.py`. Objetos sem handler ficam como "ignorados", com o payload guardado.
   - A Meta manda lotes de até 1000 atualizações e reenvia por até 36 horas sem confirmação. A deduplicação usa o hash do corpo, e os IDs externos únicos de `Message` e `Event` cobrem o resto.
 - **Graph API** (`apps/meta_business/client.py`):
   - Token no cabeçalho `Authorization`, nunca na URL; o log do `httpx` fica em WARNING para não gravar URLs.
@@ -80,8 +80,8 @@ A Fase 3 é desenvolvida no branch `fase-3-instagram-facebook`, a partir do `mai
 
 ### Ordem do trabalho
 
-1. Painel, token e comandos de conferência (`instagram_check` e `facebook_check`).
-2. Recebimento: handlers das rotas `instagram` e `page`.
+1. Painel, token e comandos de conferência (`instagram_check` e `facebook_check`): feito em 07/11/2026.
+2. Recebimento: handlers das rotas `instagram` e `page`, com nome e @ dos contatos novos pela User Profile API: feito em 07/11/2026.
 3. Envio de DM e Messenger, comentários e resposta privada.
 4. Publicação, insights e telas.
 

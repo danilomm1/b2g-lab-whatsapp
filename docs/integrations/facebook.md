@@ -1,7 +1,7 @@
 # Facebook (Página da Brave2Grow e Messenger)
 
-**Versão da API:** Graph API v26.0 (`META_GRAPH_API_VERSION`). A v27.0 saiu em 04/11/2026 só com mudanças aditivas em Páginas; a troca fica para depois da fase.
-**Última revisão:** 06/11/2026 (Fase 3 em preparação; painel configurado, código ainda não iniciado)
+**Versão da API:** Graph API v27.0 (`META_GRAPH_API_VERSION`, trocada no fechamento da Fase 2).
+**Última revisão:** 07/11/2026 (Fase 3 em andamento; recebimento, conferência e perfis prontos, envio ainda não)
 
 Base comum (app, usuário do sistema, token, webhook único) em [meta.md](meta.md). O Instagram fica em [instagram.md](instagram.md).
 
@@ -15,7 +15,7 @@ Base comum (app, usuário do sistema, token, webhook único) em [meta.md](meta.m
 - **Evento de teste:** o exemplo de `feed` do botão "Teste" (um post de status) chegou ao servidor.
 - **Usuário do sistema:** a Página está atribuída com acesso total (meta.md).
 - **Quem testa:** o perfil "Bravo To Grow", administrador do app. O app foi publicado em 07/11/2026 (meta.md).
-- **Código:** ainda não existe app `facebook`. Entregas com `object: page` ficam como "ignoradas", com o payload guardado.
+- **Código:** app `facebook` com o recebimento do Messenger e do `feed`, o comando `facebook_check` (que grava o token da Página) e a busca do nome de quem escreve. O envio ainda não existe.
 
 ## Como a API funciona
 
@@ -76,12 +76,14 @@ Feito em 06/11/2026 pelo Chrome de depuração (etapas comuns em [meta.md](meta.
 
 Ordem e dependências da fase em [meta.md](meta.md).
 
-1. **Conferência (`facebook_check`):** obtém e guarda o token da Página, mostra permissões e tarefas na Página, inscreve o app (`subscribed_apps`) e lista os campos assinados.
-2. **Recebimento:** handler da rota `page` do provedor `meta`, separando `messaging[]` (Messenger) de `changes[]` (`feed`).
+1. **Conferência (`facebook_check`, feito em 07/11/2026):** obtém o token da Página e o grava criptografado (`IntegrationCredential` `facebook` / `page`), mostra as tarefas do usuário do sistema na Página e lista os campos assinados. As tarefas vêm de `me/accounts`: o nó da Página devolve erro 100 para o campo `tasks`. Só lê; `--subscribe` inscreve o app com os campos do laboratório. Rodado contra a Meta real: token válido e sem expiração, tarefas completas, nove campos assinados.
+2. **Recebimento** (feito em 07/11/2026): handler da rota `page` do provedor `meta`, separando `messaging[]` (Messenger) de `changes[]` (`feed`). A leitura de `messaging[]` é a mesma do Instagram (`apps/meta_business/messaging.py`).
    - Mensagem vira `Message` de entrada, idempotente pelo `mid`, e atualiza a janela de 24h. Ecos viram `Message` de saída quando não forem envios do próprio laboratório.
-   - Contato e `ChannelIdentity` pelo PSID, com `account_id` = ID da Página. O nome vem do perfil (Business Asset User Profile Access).
+   - Contato e `ChannelIdentity` pelo PSID, com `account_id` = ID da Página. O nome vem do perfil: quando nasce a identidade, uma tarefa do Huey consulta `GET /<PSID>?fields=first_name,last_name,name` com o token da Página. Testado em 07/11/2026: devolveu o nome do perfil de teste. Com o token do usuário do sistema, a Meta responde erro 3.
    - Comentário vira o evento `facebook.comment_received` (idempotente pelo `comment_id`); post da Página vira `facebook.post_published`.
    - Palavra de saída em mensagem revoga os consentimentos do Facebook.
+   - Entrega e leitura usam o `watermark`: as mensagens enviadas até aquele horário avançam para entregue ou lida.
+   - O `from.id` de um comentário no `feed` não é garantidamente o PSID. Por isso o comentário só se liga a um contato que já tenha esse ID como identidade; confirmar com o primeiro comentário real.
 3. **Envio no Messenger:** `send_message` único, com janela de 24h, `HUMAN_AGENT` só por ação humana na tela, `Consent` e limite semanal para contato proativo, dry-run e allowlist. Usa o `GraphClient.post` sem repetição da Fase 2.
 4. **Comentários:** responder, ocultar e resposta privada, com o mesmo gatilho por palavra-chave do Instagram.
 5. **Publicação:** post de texto, link e foto, com agendamento, sempre com `dry_run` e `LAB_DRY_RUN`.
@@ -119,4 +121,6 @@ Nenhum ainda. A Graph API não cobra por chamada (meta.md).
 
 ## Próximos passos
 
-Os do plano acima, a começar pelo passo a passo no painel e pelo recebimento.
+- Publicar o código no servidor, rodar o `facebook_check` lá (para gravar o token da Página) e repetir o teste do Messenger.
+- Testar comentário em post da Página para confirmar o formato e o `from.id`.
+- Itens 3 a 7 do plano, a começar pelo envio no Messenger.

@@ -1,7 +1,7 @@
 # Instagram (@brave2grow)
 
-**Versão da API:** Graph API v26.0 (`META_GRAPH_API_VERSION`) em `graph.facebook.com`, configuração com login unificado (ADR 0008). A v27.0 saiu em 04/11/2026 sem mudança que quebre Instagram; a troca fica para depois da fase.
-**Última revisão:** 06/11/2026 (Fase 3 em preparação; painel configurado, código ainda não iniciado)
+**Versão da API:** Graph API v27.0 (`META_GRAPH_API_VERSION`, trocada no fechamento da Fase 2) em `graph.facebook.com`, configuração com login unificado (ADR 0008).
+**Última revisão:** 07/11/2026 (Fase 3 em andamento; recebimento, conferência e perfis prontos, envio ainda não)
 
 Base comum (app, usuário do sistema, token, webhook único) em [meta.md](meta.md). A Página e o Messenger ficam em [facebook.md](facebook.md).
 
@@ -15,7 +15,7 @@ Base comum (app, usuário do sistema, token, webhook único) em [meta.md](meta.m
 - **Mensagens:** `GET /<IG_ID>/conversations?platform=instagram` respondeu com a lista de conversas, então o acesso às mensagens pela API já está liberado na conta.
 - **Eventos de teste:** os exemplos de `comments` e `messages` do botão "Teste" chegaram ao servidor assinados, com rota `instagram`, e ficaram como "ignorados" (sem handler ainda).
 - **App publicado e testador aceito** em 07/11/2026 (meta.md). A conta pessoal de testes já pode gerar eventos.
-- **Código:** ainda não existe app `instagram`.
+- **Código:** app `instagram` com o recebimento (DM, ecos, botões, reações, leituras, edições, comentários e menções), o comando `instagram_check` e a busca do @ de quem escreve. O envio ainda não existe.
 
 ## Como a API funciona nesta configuração
 
@@ -93,12 +93,15 @@ Falta:
 
 Ordem e dependências da fase em [meta.md](meta.md).
 
-1. **Conferência (`instagram_check`):** confirma que o token alcança a conta (`/me/assigned_instagram_accounts`), mostra permissões faltando, testa o acesso às mensagens (erro 200 acima), inscreve a conta (`subscribed_apps`) e mostra o limite de publicação.
-2. **Recebimento:** handler da rota `instagram` do provedor `meta`, separando `messaging[]` (DM) de `changes[]` (comentários e menções).
+1. **Conferência (`instagram_check`, feito em 07/11/2026):** mostra a conta, testa a leitura do Direct (`/conversations`; o erro 200 indica acesso às mensagens desligado), lista os campos assinados e a cota de publicação das últimas 24h. Só lê; `--subscribe` inscreve a conta com os campos do laboratório. Rodado contra a Meta real: tudo certo.
+2. **Recebimento** (feito em 07/11/2026): handler da rota `instagram` do provedor `meta`, separando `messaging[]` (DM) de `changes[]` (comentários e menções). A leitura de `messaging[]` é comum ao Messenger e fica em `apps/meta_business/messaging.py`; os eventos do botão "Teste", que chegam em `changes[]`, passam pelo mesmo caminho.
    - DM vira `Message` de entrada, idempotente pelo `mid`, na conversa do contato com a conta, e atualiza `last_inbound_at` (janela de 24h). Ecos (`is_echo`) de mensagens enviadas pelo app do Instagram viram `Message` de saída, para o histórico ficar completo. Edição e exclusão atualizam a mensagem.
    - Contato e `ChannelIdentity` pelo IGSID, com `account_id` = ID da conta. Comentário traz o `username`, que vai para `handle` e `Contact.instagram_handle`. O vínculo com contatos de outros canais fica para o F06 (CLAUDE.md, seção 13), com confirmação do contato.
    - Comentário vira o evento `instagram.comment_received` (idempotente pelo `comment_id`); menção vira `instagram.mention_received`.
    - Palavra de saída (`SAIR`, `PARAR`, `STOP`) em DM revoga os consentimentos do Instagram, como no WhatsApp.
+   - Reação vira o evento `instagram.reaction`; leitura (`read.mid`) marca como lidas as mensagens enviadas até aquela; edição guarda o texto anterior em `raw_payload.edits`; exclusão marca `raw_payload.deleted_at` e mantém a mensagem.
+   - Perfil: quando nasce uma identidade, uma tarefa do Huey consulta `GET /<IGSID>?fields=name,username` com o token da Página (o do usuário do sistema é recusado) e completa nome e @ do contato. Testado em 07/11/2026: devolve o @ do testador; o nome só vem quando a pessoa preencheu.
+   - Comentário: o contato é achado pelo `from.id`, que a documentação chama de IGSID (o mesmo da DM). O exemplo do painel traz também `from.self_ig_scoped_id`, igual ao `from.id`; confirmar com o primeiro comentário real.
 3. **Envio de DM:** `send_message` único, com as travas do laboratório: janela de 24h, `HUMAN_AGENT` só por ação humana na tela, `Consent` e limite semanal para contato proativo, dry-run e allowlist. Usa o `GraphClient.post` sem repetição da Fase 2.
 4. **Comentários:** responder, ocultar e resposta privada. Gatilho por palavra-chave (jornada 1 do CLAUDE.md): comentário com a palavra gera resposta privada com o convite para o WhatsApp (link wa.me com código `[B2G-XXXXX]`). Enquanto não houver acesso avançado, os comentários entram pela consulta periódica.
 5. **Publicação:** imagem, carrossel e Reels pelo container, com o status acompanhado por tarefa do Huey e o limite conferido antes. Toda publicação com `dry_run` e `LAB_DRY_RUN`.
@@ -135,4 +138,5 @@ Nenhum ainda. A Graph API não cobra por chamada (meta.md).
 
 ## Próximos passos
 
-Os do plano acima, a começar pelo passo a passo no painel e pelo recebimento.
+- Publicar o código no servidor e repetir o teste da DM: agora ela deve virar contato, conversa e mensagem, com o @ preenchido.
+- Itens 3 a 7 do plano, a começar pelo envio de DM.
