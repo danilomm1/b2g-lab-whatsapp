@@ -32,6 +32,7 @@ Resumo da documentação oficial lida em 06/11/2026 (Pages API e Messenger Platf
 - Campos de interesse: `feed` (posts e comentários), `messages`, `messaging_postbacks`, `message_echoes`, `message_deliveries`, `message_reads`, `message_reactions`, `message_edits`, `messaging_referrals` e `messaging_optins`.
 - A Meta espera HTTP 200 em até 5 segundos e, depois de 1 hora de falhas, desinscreve o app da Página. A esteira da Fase 0 já responde antes de processar (ADR 0003).
 - **Mensagem:** `entry[].messaging[]` com `sender.id` (PSID), `recipient.id` (a Página), `timestamp` e `message` (`mid`, `text`, `attachments`, `quick_reply`). Ecos das mensagens enviadas pela Página chegam pelo campo `message_echoes`, com `is_echo: true`.
+- **Mensagem real (confirmado em 07/11/2026):** chegou em `entry[].messaging[]`. `entry.id` e `recipient.id` são o ID da Página, `sender.id` é o PSID de quem escreveu, o `mid` começa com `m_`, e `entry.time` e `messaging[].timestamp` vêm em **milissegundos**, como no Instagram. Mesmos cabeçalhos do Instagram (`X-Hub-Signature-256`, `Facebook-Api-Version`).
 - **Comentário:** `entry[].changes[]` com `field: feed`. A documentação atual só mostra o exemplo de post (`item: post`, `verb: add`, `post_id`, `from`, `message`). O formato de comentário (`item: comment`, `comment_id`, `parent_id`, `post_id`, `from`) aparece documentado só para grupos; confirmar com o primeiro payload real guardado.
 
 ### Messenger
@@ -106,11 +107,11 @@ Ordem e dependências da fase em [meta.md](meta.md).
 
 - Fase 1: o evento de teste do campo `messages` chegou assinado e roteado como `page` (meta.md).
 - 06/11/2026: permissões adicionadas, token novo com as permissões de Página, token da Página obtido pelo usuário do sistema, nove campos assinados e app inscrito na Página. O exemplo de `feed` chegou ao servidor.
-- Ainda sem evento real de pessoa: falta o teste do "Bravo To Grow" mandando mensagem e comentando na Página.
+- 07/11/2026: com o app publicado, uma mensagem real do "Bravo To Grow" para a Página chegou ao servidor segundos depois do envio, assinada, com rota `page`, e ficou como "ignorada" com o payload guardado (sem handler ainda). Falta testar comentário em post da Página.
 
 ## Limitações encontradas
 
-Ainda sem teste real. Pela documentação: envio e publicação só com token de Página, tags de atualização antigas descontinuadas, formato do comentário em `feed` a confirmar, métricas antigas de insights removidas.
+Só a mensagem do Messenger foi testada de verdade, e chegou. Pela documentação: envio e publicação só com token de Página, tags de atualização antigas descontinuadas, formato do comentário em `feed` a confirmar, métricas antigas de insights removidas.
 
 ## Custos observados
 
