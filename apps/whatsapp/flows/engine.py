@@ -35,6 +35,9 @@ RUN_TTL = timedelta(hours=24)  # pergunta sem resposta há mais tempo: a execuç
 RESTART_COOLDOWN = timedelta(hours=12)  # depois de concluir, só recomeça sozinho após 12h
 MAX_STEPS = 50  # trava contra ciclos no grafo
 MENU_KEYWORDS = frozenset({"MENU", "INICIO", "COMECAR"})
+# Reação a uma mensagem (emoji) e tipos que a Cloud API não suporta não são resposta a
+# nada: não contam como tentativa nem iniciam fluxo
+IGNORED_KINDS = frozenset({"reaction", "unsupported", "unknown", "system"})
 OPT_OUT_CONFIRMATION = (
     "Pronto, você não vai mais receber mensagens da Brave2Grow por aqui. "
     "Se mudar de ideia, é só mandar uma mensagem."
@@ -525,6 +528,8 @@ def _may_auto_start(conversation: Conversation) -> bool:
 
 def handle_inbound(message: Message) -> list[OutboundPayload]:
     """Decide a resposta a uma mensagem recebida e agenda o envio para depois do commit."""
+    if message.kind in IGNORED_KINDS:
+        return []
     conversation = message.conversation
     outbox: list[OutboundPayload] = []
     notices: list[tuple[Conversation, OutboundPayload]] = []
@@ -572,9 +577,21 @@ def handle_inbound(message: Message) -> list[OutboundPayload]:
 
     if outbox:
         schedule_outbox(conversation, outbox, reply_to=message)
+    elif not Conversation.objects.filter(
+        pk=conversation.pk, status=ConversationStatus.HANDOFF
+    ).exists():
+        # Robô quieto de propósito: marca como lida mesmo assim. No handoff, os tiques
+        # azuis só aparecem quando alguém atende pela tela.
+        schedule_mark_read(message)
     for notice_conversation, notice in notices:
         schedule_outbox(notice_conversation, [notice], reply_to=None)
     return outbox
+
+
+def schedule_mark_read(message: Message) -> None:
+    from ..tasks import mark_read
+
+    transaction.on_commit(lambda: mark_read(message.pk))
 
 
 def start_by_agent(conversation: Conversation, key: str) -> list[OutboundPayload]:

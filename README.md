@@ -90,7 +90,7 @@ Webhooks reais da Meta só chegam no servidor de validação (EC2), nunca na má
 
 ## WhatsApp (Cloud API)
 
-Estado, passo a passo do número de teste no painel, travas de envio, mídia, templates, formulários nativos, fluxos e custos em [docs/integrations/whatsapp.md](docs/integrations/whatsapp.md). Contatos são identificados pelo BSUID ([ADR 0006](docs/decisions/0006-identidade-whatsapp-por-bsuid.md)), e os fluxos conversacionais são definidos em código ([ADR 0007](docs/decisions/0007-motor-de-fluxo-do-whatsapp.md)). As conversas ficam em **Conversas**, no topo do painel.
+Estado, passo a passo do número de teste no painel, travas de envio, mídia, templates, formulários nativos, fluxos e custos em [docs/integrations/whatsapp.md](docs/integrations/whatsapp.md). Contatos são identificados pelo BSUID ([ADR 0006](docs/decisions/0006-identidade-whatsapp-por-bsuid.md)), e os fluxos conversacionais são definidos em código ([ADR 0007](docs/decisions/0007-motor-de-fluxo-do-whatsapp.md)). As conversas ficam em **Conversas**, no topo do painel. O roteiro de testes de ponta a ponta, com o resultado da última rodada, está em [docs/integrations/whatsapp-roteiro-de-testes.md](docs/integrations/whatsapp-roteiro-de-testes.md).
 
 ```powershell
 .\.venv\Scripts\python.exe manage.py whatsapp_check                               # número, app assinado na WABA e templates

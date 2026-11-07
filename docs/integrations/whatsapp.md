@@ -1,7 +1,7 @@
 # WhatsApp (Cloud API)
 
 **Versão da API:** Graph API v27.0 (`META_GRAPH_API_VERSION`), a versão dos exemplos atuais da documentação do WhatsApp. Em 06/11/2026 ela respondeu normalmente com o token do usuário do sistema; a v28.0 ainda não existe.
-**Última revisão:** 06/11/2026 (Fase 2 concluída e validada de ponta a ponta no WhatsApp real, nos papéis de cliente e de fornecedor)
+**Última revisão:** 07/11/2026 (Fase 2 concluída; roteiro completo de mensagens validado no WhatsApp real, nos papéis de cliente e de fornecedor: [whatsapp-roteiro-de-testes.md](whatsapp-roteiro-de-testes.md))
 
 ## O que está configurado
 
@@ -107,6 +107,8 @@ Montagem das mensagens (`apps/whatsapp/payloads.py`), com os limites validados a
   4. **Handoff:** a conversa fica "com humano" e o robô não responde até alguém clicar em "Devolver ao assistente" na tela ou o contato enviar MENU.
   5. **Pergunta aberta:** a resposta é interpretada. O ID do botão leva o nó como prefixo (`no:opcao`), para um botão antigo não valer como resposta; também valem o título digitado (sem acento nem pontuação) e o número da opção. Duas respostas inválidas seguidas levam ao caminho de falha (em geral, o handoff). Uma pergunta sem resposta por 24 horas expira.
   6. **Sem fluxo aberto:** o fluxo `boas_vindas` começa, exceto nas 12 horas depois de um fluxo concluído (um "obrigado" não reinicia o menu).
+- **Reações e tipos não suportados:** são gravados, mas o motor os ignora (não contam como resposta nem iniciam fluxo).
+- **Tiques azuis:** a mensagem do contato é marcada como lida quando o robô responde (com "digitando...") e também quando ele fica quieto de propósito. No handoff, ela fica como entregue até alguém agir pela tela de conversa, que marca como lida a última mensagem recebida.
 - **Falhas no motor:** viram o evento `whatsapp.flow_error` sem perder a mensagem recebida.
 - **Fluxo `boas_vindas`** (`flows/brave2grow.py`):
   1. Saudação pelo nome. No primeiro contato, inclui o aviso de privacidade da seção 13, com o link da política, e o lembrete do SAIR, e registra `privacy.notice_shown`.
@@ -122,7 +124,7 @@ Montagem das mensagens (`apps/whatsapp/payloads.py`), com os limites validados a
 - **Conversas** (link no topo do painel, só staff): lista as conversas do WhatsApp com a janela de 24h e a marca "com humano".
 - **Conversa:** mensagens atualizadas pelo HTMX a cada 5 s, com o status de cada envio, o ID dos botões tocados e as mídias recebidas (imagem em miniatura, demais tipos por link); o fluxo em andamento com nó atual e respostas; o botão "Devolver ao assistente" durante o handoff.
 - **Responder como Brave2Grow:** texto livre ou arquivo com legenda (dentro da janela).
-- **Testes rápidos:** mensagem com três botões (`teste_sim`, `teste_nao`, `teste_talvez`), imagem de teste e formulário de cadastro.
+- **Testes rápidos:** mensagem com três botões (`teste_sim`, `teste_nao`, `teste_talvez`), mensagem com lista de duas seções (`teste_seg_10`, `teste_qua_15`, `teste_ter_09`), imagem de teste e formulário de cadastro.
 - É uma versão só do WhatsApp; a caixa de entrada unificada continua na Fase 8.
 
 ### Comandos
@@ -213,6 +215,7 @@ Para o laboratório, o número de teste basta. A escolha entre esses caminhos é
 | Fornecedor | Formulário pela tela, cliente preenche sem opt-in | Cadastro gravado sem consentimento novo |
 
 - Todos os envios das duas rodadas passaram por enviada, entregue e lida pelo webhook.
+- 06 e 07/11/2026, rodada 3: roteiro completo com 54 passos, cobrindo todas as mensagens do assistente, do fornecedor e do cliente, templates e saída, todos funcionando; 121 mensagens enviadas e 121 lidas, sem falha. Detalhes, problemas corrigidos e notas de automação em [whatsapp-roteiro-de-testes.md](whatsapp-roteiro-de-testes.md).
 
 ## Limitações encontradas
 
@@ -223,6 +226,8 @@ Para o laboratório, o número de teste basta. A escolha entre esses caminhos é
 - O `mimetypes` do servidor não conhece `image/webp`; o laboratório usa uma tabela própria de extensões.
 - No WhatsApp Web, o formulário nativo abre num painel lateral (iframe) mais largo que a janela; a automação de teste precisou clicar no texto da caixa de opt-in. Isso não afeta o celular.
 - Um toque em botão de template com um fluxo aberto era lido como resposta à pergunta; corrigido (o botão de template tem prioridade).
+- Sem resposta do robô, a mensagem do contato ficava só como entregue, inclusive no handoff depois de o fornecedor responder; corrigido (ver "Tiques azuis").
+- Uma reação com emoji contava como resposta inválida; corrigido (o motor ignora reações).
 
 ## Próximos passos (fora da Fase 2)
 
